@@ -1,14 +1,16 @@
 let slider;
-let waterLevel = 75; // Initial water height (middle level)
+let upper_waterLevel = 75; // Initial water height (middle level)
+let lower_waterLevel = 0;
 let filling = false;
 let draining = false;
 let previousWaterflowDrain = false;
 let previousWaterflowFill = false;
 let leaking = false;
 let droplets = [];
+let pauseSim = false;
 
 function setup() {
-    createCanvas(800, 800);
+    createCanvas(1000, 1000);
     
     // Create a slider
     slider = createSlider(0, 200, 1);
@@ -21,7 +23,7 @@ function setup() {
     // Detect when the user interacts with the slider
     slider.input(() => {
         //userAdjusting = true;
-        waterLevel = slider.value();
+        upper_waterLevel = slider.value();
     });
 
     // Button to fill water
@@ -34,8 +36,8 @@ function setup() {
     });
 
     // Button to drain water
-    let drainButton = createButton("Drain");
-    drainButton.position(160, 50);
+    let drainButton = createButton("Stop fill");
+    drainButton.position(140, 50);
     drainButton.mousePressed(() => {
         draining = true;
         filling = false;
@@ -43,12 +45,11 @@ function setup() {
     });
 
     // Button to stop simulation
-    let stopButton = createButton("Stop");
+    let stopButton = createButton("Pause simulation");
     stopButton.position(230, 50);
     stopButton.mousePressed(() => {
-        filling = false;
-        draining = false;
-        //userAdjusting = false;
+        pauseSim = !pauseSim;
+        leaking = false;
     });
 }
 
@@ -110,30 +111,54 @@ function draw() {
     stroke(0);
     rect((x_upperTank + tankSize/2 - connectorWidth/2), (y_upperTank+tankSize), connectorWidth, tankGap);
 
+
     // If the user is not manually adjusting, allow the simulation to control waterLevel
-      if (filling && waterLevel < 200) {
-          waterLevel += 0.5; // Increase gradually
-      }
-      if (draining && waterLevel > 0) {
-          waterLevel -= 0.5; // Decrease gradually
-      }
-      if (filling && waterLevel == 200 ){
-        leaking = true;
-      } else{
-        leaking = false;
-        newDroplets = [];
-        droplets = newDroplets;
-      }
-      
+    if(!pauseSim) {
+        //let calc_upperWater = 0;
+        //let calc_lowerWater = 0;
+        if (filling && upper_waterLevel < 200) {
+            upper_waterLevel += 1; // Increase gradually
+        }
+        
+        if(upper_waterLevel>0){
+            upper_waterLevel -= 0.5;
+        }
+        if(lower_waterLevel > 0){
+            lower_waterLevel -= 0.25
+        }
+
+        if(upper_waterLevel > 0 && lower_waterLevel< 200) {
+            lower_waterLevel += 0.5;
+        } 
+        if (filling && upper_waterLevel >= 199 ){
+            leaking = true;
+        } else{
+            leaking = false;
+            newDroplets = [];
+            droplets = newDroplets;
+        }
+        
+    }
 
     // Always update the slider to reflect changes in waterLevel
-      slider.value(waterLevel);
+      slider.value(upper_waterLevel);
 
     // Draw the water inside the tank
     fill(0, 0, 255);
     noStroke();
-    rect(150, 350 - waterLevel, 200, waterLevel);
-    if(leaking){
+    rect(x_upperTank, y_upperTank+tankSize - upper_waterLevel, tankSize, upper_waterLevel);
+
+    if(upper_waterLevel > 0){
+        fill(0, 0, 255);
+        noStroke();
+        rect((x_upperTank + tankSize/2 - connectorWidth/2), (y_upperTank+tankSize), connectorWidth, tankGap);
+    }
+
+    fill(0, 0, 255);
+    noStroke();
+    rect(x_upperTank, x_upperTank+2*tankSize+tankGap - lower_waterLevel, tankSize, lower_waterLevel);
+
+    if (leaking && !pauseSim) {
         drawLeak();
-      } 
+    }
 }
