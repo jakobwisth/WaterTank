@@ -4,9 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>p5.js Water Tank</title>
+    <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <script src="sketch.js" defer></script>
 </head>
-<body>
+<body> 
+    <div id="canvas-container"></div>
+    <input type="range" id="water-slider" min="0" max="200" value="50" />
+    <div id="controls">
+      <button id="fill-btn">Fill</button>
+      <button id="drain-btn">Stop Fill</button>
+      <button id="pause-btn">Pause Simulation</button>
+    </div>
 </body>
 </html>

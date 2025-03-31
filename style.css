@@ -1,8 +1,72 @@
-html, body {
+
+* {
+  box-sizing: border-box;
+}
+
+body {
   margin: 0;
-  padding: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background-color: #f0f0f0;
+  overflow: hidden;
+}
+
+#canvas-container {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 20px;
 }
 
 canvas {
-  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 2px solid #333;
+}
+
+#controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  background-color: #0077cc;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #005fa3;
+}
+
+#water-slider {
+  position: absolute;
+  transform: rotate(270deg);
+  background: #ccc;
+  appearance: none;
+  border-radius: 10px;
+  z-index: 10;
+  height: 3px;
+  width: 150px;
+}
+
+#water-slider::-webkit-slider-thumb {
+  appearance: none;
+  background: transparent;
+  border: none;
+  transform: rotate(90deg);
+  width: 0;
+  height: 0;
+  margin-top: -11px;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 20px solid #0077cc;
+  cursor: pointer;
 }
