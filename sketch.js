@@ -1,17 +1,21 @@
 
 let sliderTop;
-let upperWaterPercent = 0.5; // percentage of tank filled (0 to 1)
+let upperWaterPercent = 0.0; // percentage of tank filled (0 to 1)
 let lowerWaterPercent = 0.0;
 let padding = 20;
-let filling = false;
+let filling = true;
 let draining = false;
 let leaking = false;
 let droplets = [];
 let pauseSim = false;
-let clog = true;
+let clog = false;
 let canvas;
 let slidertop;
 let speedup = 1;
+
+let x_controls;
+let y_controls;
+let controlSize;
 
 let graphDuration = 15; // seconds
 let upperLevelHistory = [];
@@ -31,11 +35,15 @@ function setup() {
   
 
   drainBtn.style('background', 'green');
-  clogBtn.style('background', 'green');
+  //clogBtn.style('background', 'green');
   controlBtn.style('background', 'brown');
   
 }
 function draw() {
+
+fill(255); stroke(0);
+rect(30,330,500,300);
+
 
   background(220);
   textAlign(LEFT, TOP);
@@ -61,44 +69,76 @@ lastFrameTime = currentTime;
   drawLineGraph();
 
 
-  let x_upperTank = width * 0.15;
+  let x_upperTank = width * 0.40;
   let y_upperTank = height * 0.15;
   let tankSize = min(width, height) * 0.25;
   let tankGap = height * 0.05;
   let connectorWidth = tankSize * 0.05;
 
+  x_controls = width*0.01;
+  y_controls = height*0.1;
+  controlSize = min(width,height) * 0.5;
+
   let upperWaterLevel = upperWaterPercent * tankSize;
   let lowerWaterLevel = lowerWaterPercent * tankSize;
 
-  // Draw tanks
+  // Draw boxes
   fill(255); stroke(0);
+  
+  // Draw tanks+connector
   rect(x_upperTank, y_upperTank, tankSize, tankSize);
   rect(x_upperTank, y_upperTank + tankSize + tankGap, tankSize, tankSize);
   rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
+  // Drawing control box
+  rect(x_controls, y_controls, controlSize, controlSize*1.4); 
+
+
+  
+
   //Water Logic
-  let upperOutflow = 0.00125;
-  let lowerOutflow = 0.00125;
-  let upperInflow = 0.0025;
-  let lowerInflow = upperOutflow;
 
-  if(clog) lowerOutflow = 0;
-
-  if (!pauseSim) {
-    if(filling){
-      upperWaterPercent += upperInflow;
+    //Water Logic
+    h1 = upperWaterPercent * 0.16; // 16 cm höjd
+    h2 = lowerWaterPercent * 0.16;  // h1 and h2 are the water heights inside tank 1 and 2 respectively
+    g = 9.82;
+    a1 = 3.1 * Math.pow(10,-6);
+    a2 = a1;
+  
+    let dt = 1 / 60; // (60 fps)
+    let A = 4.9 * Math.pow(10, -4); // tank area
+  
+    let upper_q_out = a1 * sqrt(2 * g * h1);
+    let lower_q_out = a2 * sqrt(2 * g * h2);
+  
+    // Inflow adjustable by slider (0 to max alpha from lab, which is 2.1e-5 m^3/s)
+    let inflow_rate_max = 2.1 * Math.pow(10, -5);
+    let inflow_rate = (inflowSlider.value() / 100) * inflow_rate_max; // inflow slider: 0–100%
+    let upper_q_in = filling ? inflow_rate : 0;
+    let lower_q_in = upper_q_out;
+  
+    if (!pauseSim) {
+      if (filling) {
+        h1 += (upper_q_in * dt / A); 
+      }
+  
+      h1 -= (upper_q_out * dt / A);
+      h2 += (upper_q_out * dt / A); // inflow to lower tank
+  
+      if (!clog) {
+        h2 -= (lower_q_out * dt / A);
+      }
+  
+      if (h1 < 0) h1 = 0;
+      if (h1 > 0.16) h1 = 0.16;
+  
+      if (h2 < 0) h2 = 0;
+      if (h2 > 0.16) h2 = 0.16;
+  
+      // Convert back to percentage
+      upperWaterPercent = h1 / 0.16;
+      lowerWaterPercent = h2 / 0.16;
     }
-    if (upperWaterPercent > 0) {
-      upperWaterPercent -= upperOutflow;
-      lowerWaterPercent += lowerInflow;
-    }
-    if(lowerWaterPercent > 0){
-      lowerWaterPercent -= lowerOutflow;
-    }
-    if(lowerWaterPercent > 1) lowerWaterPercent = 1;
-    if(upperWaterPercent > 1) upperWaterPercent = 1;
-
-  }
 
   // Update slider and controls positions
   resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
@@ -108,12 +148,13 @@ lastFrameTime = currentTime;
 
   // Draw water
   fill(0, 0, 255); noStroke();
-  rect(x_upperTank, y_upperTank + tankSize - upperWaterLevel, tankSize, upperWaterLevel);
+  rect(x_upperTank, y_upperTank + tankSize - upperWaterLevel, tankSize, upperWaterLevel); // Tank 1 water
   if (upperWaterLevel > 0) {
-    rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
-    rect(x_upperTank + tankSize / 2 - connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap);
+    rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap); // Connector water
+    rect(x_upperTank + tankSize / 2 - connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
   }
-  rect(x_upperTank, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize, lowerWaterLevel);
+  rect(x_upperTank, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize, lowerWaterLevel); //Tank 2 water
+  
 
   if (leaking && !pauseSim) drawLeak(x_upperTank, y_upperTank);
 
@@ -137,6 +178,14 @@ function resizeControls(x, y, size, gap) {
   sliderBot.style('width', (size + pointerOffset) + 'px');
   sliderBot.attribute('max', size);
   sliderBot.attribute('min', 0);
+
+
+  let styrBox = select('#styrsignal-slider-box');
+  let scaleFactor = size / 200;
+  
+  styrBox.position(x_controls + controlSize / 5, y_controls + controlSize / 5);
+  styrBox.style('transform', `scale(${scaleFactor})`);
+  
 
   let controlsX = botSliderX - size;
   let controlsY = botSliderY + size;
@@ -191,7 +240,7 @@ function drawLineGraph() {
   const graphX = width - graphWidth - padding;
   const graphY = padding;
 
-  // simulation time
+  // simulation time (for x axis)
   const now = simTime;
   const minTime = Math.max(0, now - graphDuration);
   const maxTime = minTime + graphDuration;
@@ -264,7 +313,7 @@ function drawLineGraph() {
   strokeWeight(1); //reset so lines are good on tank, etc
 }
 
-
+//-------------------------
 
 function resetButtonColors() {
   fillBtn.style('background-color', '#0077cc');
@@ -285,13 +334,32 @@ function clickables(){
   pauseBtn =select('#pause-btn');
   buttons = select('#controls');
   clogBtn = select('#clog-btn');
+  inflowSlider = select('#inflow-slider');
+  inflowValue = select('#inflow-value');
+  
 
+  //inflowSliderWrapper = select('#inflow-slider-wrapper');
 // How the clickables will function here
+
+inflowValue.changed(() => {
+  let typedValue = parseFloat(inflowValue.value());
+  if (!isNaN(typedValue)) {
+    let clamped = constrain(typedValue, 0, 1);
+    inflowValue.value(nf(clamped, 1, 2)); 
+    inflowSlider.value(clamped * 100);
+  }
+});
+
   sliderTop.input(() => {
     let tankSize = min(width, height) * 0.25;
     upperWaterPercent = constrain(sliderTop.value() / tankSize, 0, 1);
   });
 
+  inflowSlider.input(() => {
+    let percent = inflowSlider.value() / 100;
+    inflowValue.value(nf(percent, 1, 2));
+  });
+  
   sliderBot.input(() => {
     let tankSize = min(width, height) * 0.25;
     lowerWaterPercent = constrain(sliderBot.value() / tankSize, 0, 1);
