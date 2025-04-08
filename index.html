@@ -12,9 +12,8 @@
 <body> 
     <div id="canvas-container"></div>
 
-    <div id="styrsignal-slider-box">
-      <div id="styrsignal-slider">
-        <div class="slider-title">Inflow rate</div>
+    <div id="inflow-slider-box">
+        <div class="slider-title">Inflow rate (um) </div>
         <div class="slider-paired-row">
           <input type="range" id="inflow-slider" min="0" max="100" value="0" />
           <div class="slider-labels">
@@ -24,8 +23,20 @@
           </div>
         </div>
         <input type="number" id="inflow-value" min="0" max="1" step="0.01" value="0.0" />
-      </div>
     </div>
+
+    <div id="setpoint-slider-box">
+      <div class="slider-title">Setpoint (r)</div>
+      <div class="slider-paired-row">
+        <input type="range" id="setpoint-slider" min="0" max="100" value="0" />
+        <div class="slider-labels">
+          <div class="scale-label">1.0</div>
+          <div class="scale-label">0.5</div>
+          <div class="scale-label">0.0</div>
+        </div>
+      </div>
+      <input type="number" id="setpoint-value" min="0" max="1" step="0.01" value="0.0" />
+  </div>
 
     <!--Sliders-->
     <input type="range" id="top-slider"/>
@@ -36,8 +47,9 @@
       <button id="fill-btn">Fill</button>
       <button id="drain-btn">Stop Fill</button>
       <button id="pause-btn">Pause Simulation</button>
-      <button id="control-btn">Control 50%</button>
-      <button id="clog-btn">Clog lower</button>
+      <button id="control-btn">P control</button>
+      <button id="clog-lower-btn">Clog lower</button>
+      <button id="clog-upper-btn">Clog upper</button>
     </div>
 </body>
 </html>

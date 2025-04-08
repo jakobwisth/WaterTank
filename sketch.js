@@ -8,10 +8,13 @@ let draining = false;
 let leaking = false;
 let droplets = [];
 let pauseSim = false;
-let clog = false;
+let clogLower = false;
+let clogUpper = false;
 let canvas;
 let slidertop;
 let speedup = 1;
+let P_control = false;
+let Kp = 20;
 
 let x_controls;
 let y_controls;
@@ -33,26 +36,21 @@ function setup() {
 
   clickables();
   
-
-  drainBtn.style('background', 'green');
-  //clogBtn.style('background', 'green');
-  controlBtn.style('background', 'brown');
+  fillBtn.style('background', 'green');
+  controlBtn.style('background', 'red');
   
 }
 function draw() {
 
-fill(255); stroke(0);
-rect(30,330,500,300);
-
-
   background(220);
+
   textAlign(LEFT, TOP);
   text(`Canvas: ${width} x ${height}`, 10, 10);
 
-  fill(0);
-  noStroke();
   textAlign(LEFT, TOP);
   text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
+
+ 
 
   
   let currentTime = millis() / 1000;
@@ -91,13 +89,12 @@ lastFrameTime = currentTime;
   rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
   // Drawing control box
-  rect(x_controls, y_controls, controlSize, controlSize*1.4); 
+  rect(x_controls, y_controls, controlSize*0.7, controlSize*1.45); 
 
 
   
 
   //Water Logic
-
     //Water Logic
     h1 = upperWaterPercent * 0.16; // 16 cm höjd
     h2 = lowerWaterPercent * 0.16;  // h1 and h2 are the water heights inside tank 1 and 2 respectively
@@ -105,7 +102,7 @@ lastFrameTime = currentTime;
     a1 = 3.1 * Math.pow(10,-6);
     a2 = a1;
   
-    let dt = 1 / 60; // (60 fps)
+    let dt = ( 1 / 60 ) * speedup; // This assumes the system is running on 60fps***
     let A = 4.9 * Math.pow(10, -4); // tank area
   
     let upper_q_out = a1 * sqrt(2 * g * h1);
@@ -113,7 +110,7 @@ lastFrameTime = currentTime;
   
     // Inflow adjustable by slider (0 to max alpha from lab, which is 2.1e-5 m^3/s)
     let inflow_rate_max = 2.1 * Math.pow(10, -5);
-    let inflow_rate = (inflowSlider.value() / 100) * inflow_rate_max; // inflow slider: 0–100%
+    let inflow_rate = getInflow(inflow_rate_max); 
     let upper_q_in = filling ? inflow_rate : 0;
     let lower_q_in = upper_q_out;
   
@@ -121,13 +118,17 @@ lastFrameTime = currentTime;
       if (filling) {
         h1 += (upper_q_in * dt / A); 
       }
+      if (clogUpper) {
+        upper_q_out = 0;
+      }
   
       h1 -= (upper_q_out * dt / A);
       h2 += (upper_q_out * dt / A); // inflow to lower tank
   
-      if (!clog) {
+      if (!clogLower) {
         h2 -= (lower_q_out * dt / A);
       }
+
   
       if (h1 < 0) h1 = 0;
       if (h1 > 0.16) h1 = 0.16;
@@ -158,7 +159,14 @@ lastFrameTime = currentTime;
 
   if (leaking && !pauseSim) drawLeak(x_upperTank, y_upperTank);
 
+  let uText = `u(t): ${nf(inflow_rate / inflow_rate_max, 1, 2)}`;
 
+  textAlign(RIGHT, BOTTOM);
+  fill(0);
+  textSize(14);
+  text(uText, width - 10, height - 10);
+  textAlign(RIGHT, BOTTOM);
+  text(`Kp ${nf(Kp)}`, width - 10, height - 30);
   
 }
 
@@ -180,16 +188,25 @@ function resizeControls(x, y, size, gap) {
   sliderBot.attribute('min', 0);
 
 
-  let styrBox = select('#styrsignal-slider-box');
+  let inflowBox = select('#inflow-slider-box');
+  let setpointBox = select('#setpoint-slider-box');
   let scaleFactor = size / 200;
+  let x_controlSlider = x_controls + controlSize / 5;
+  let y_inflowSlider =  y_controls + controlSize / 10;
   
-  styrBox.position(x_controls + controlSize / 5, y_controls + controlSize / 5);
-  styrBox.style('transform', `scale(${scaleFactor})`);
+  inflowBox.position(x_controlSlider, y_inflowSlider);
+  inflowBox.style('transform', `scale(${scaleFactor})`);
+  setpointBox.position(x_controlSlider, y_inflowSlider + 1.3*size);
+  setpointBox.style('transform', `scale(${scaleFactor})`);
   
 
-  let controlsX = botSliderX - size;
+  let controlsX = x_controlSlider;
   let controlsY = botSliderY + size;
   buttons.position(controlsX, controlsY);
+
+
+  fillBtn.hide();
+  drainBtn.hide();
 
 }
 
@@ -254,25 +271,25 @@ function drawLineGraph() {
   // ---Drawing grids---
   // Y-axis
   stroke(220);
-  for (let yVal = 0; yVal <= 100; yVal += 20) {
+  for (let yVal = 0; yVal <= 100; yVal += 10) {
     let y = map(yVal, 0, 100, graphY + graphHeight, graphY);
     line(graphX, y, graphX + graphWidth, y);
     noStroke();
     fill(80);
     textAlign(RIGHT, CENTER);
-    text(`${yVal}%`, graphX - 5, y);
+    if(yVal%20 == 0){    {text(`${yVal}%`, graphX - 5, y);}}
     stroke(220);
   }
   // X-axis
   stroke(220);
-  const xStep = 5;
+  const xStep = 1;
   for (let sec = Math.ceil(minTime / xStep) * xStep; sec <= maxTime; sec += xStep) {
     let x = map(sec, minTime, maxTime, graphX, graphX + graphWidth);
     line(x, graphY, x, graphY + graphHeight);
     noStroke();
     fill(80);
     textAlign(CENTER, TOP);
-    text(`${nf(sec, 2, 1)}s`, x, graphY + graphHeight + 5);
+    if(sec%5 == 0){text(`${nf(sec, 2, 1)}s`, x, graphY + graphHeight + 5);}
     stroke(220);
   }
   // Ticks on x axis
@@ -326,6 +343,8 @@ function clickables(){
   // Make <div> in html, and style in style.css
 
 // Make variables of the clickables
+
+// NOTE: might be smart to move some if they are only used once. (i.e inflowBox and setpointbox)
   sliderTop = select('#top-slider');
   sliderBot = select('#bot-slider');
   fillBtn = select('#fill-btn');
@@ -333,12 +352,13 @@ function clickables(){
   controlBtn = select('#control-btn');
   pauseBtn =select('#pause-btn');
   buttons = select('#controls');
-  clogBtn = select('#clog-btn');
+  clogLowerBtn = select('#clog-lower-btn');
+  clogUpperBtn = select('#clog-upper-btn');
   inflowSlider = select('#inflow-slider');
   inflowValue = select('#inflow-value');
+  setpointSlider = select('#setpoint-slider');
+  setpointValue = select('#setpoint-value');
   
-
-  //inflowSliderWrapper = select('#inflow-slider-wrapper');
 // How the clickables will function here
 
 inflowValue.changed(() => {
@@ -350,6 +370,15 @@ inflowValue.changed(() => {
   }
 });
 
+setpointValue.changed(() => {
+  let typedValue = parseFloat(setpointValue.value());
+  if (!isNaN(typedValue)) {
+    let clamped = constrain(typedValue, 0, 1);
+    setpointValue.value(nf(clamped, 1, 2)); 
+    setpointSlider.value(clamped * 100);
+  }
+});
+
   sliderTop.input(() => {
     let tankSize = min(width, height) * 0.25;
     upperWaterPercent = constrain(sliderTop.value() / tankSize, 0, 1);
@@ -358,6 +387,10 @@ inflowValue.changed(() => {
   inflowSlider.input(() => {
     let percent = inflowSlider.value() / 100;
     inflowValue.value(nf(percent, 1, 2));
+  });
+  setpointSlider.input(() => {
+    let percent = setpointSlider.value() / 100;
+    setpointValue.value(nf(percent, 1, 2));
   });
   
   sliderBot.input(() => {
@@ -372,11 +405,16 @@ inflowValue.changed(() => {
     fillBtn.style('background-color', 'green');
   });
 
-  clogBtn.mousePressed(() => {
-    clog = !clog;
-    if(clog){clogBtn.style('background-color', 'green');}
-    else{clogBtn.style('background-color', '#0077cc');}
-    
+  clogLowerBtn.mousePressed(() => {
+    clogLower = !clogLower;
+    if(clogLower){clogLowerBtn.style('background-color', 'green');}
+    else{clogLowerBtn.style('background-color', '#0077cc');}
+  });
+
+  clogUpperBtn.mousePressed(() => {
+    clogUpper = !clogUpper;
+    if(clogUpper){clogUpperBtn.style('background-color', 'green');}
+    else{clogUpperBtn.style('background-color', '#0077cc');}
   });
   drainBtn.mousePressed(() => {
     filling = false;
@@ -386,9 +424,10 @@ inflowValue.changed(() => {
   });
 
   controlBtn.mousePressed(() => {
-    //filling = false;
-    //resetButtonColors();
-    controlBtn.style('background-color', "brown");
+
+    P_control = !P_control;
+    if(!P_control){controlBtn.style('background-color', 'red');}
+    else{controlBtn.style('background-color', 'green');}
   });
 
   pauseBtn.mousePressed(() => {
@@ -397,4 +436,22 @@ inflowValue.changed(() => {
     if(pauseSim){pauseBtn.style('background-color', 'orange');}
     else{pauseBtn.style('background-color', '#0077cc');}
   });
+}
+
+function getInflow(inflow_rate_max){
+  if (!P_control){
+    return (inflowSlider.value() / 100) * inflow_rate_max; // inflow slider: 0–100%
+  }
+  else{
+    // Proportional part
+        // set inflow based on setpoint (r) value
+        // P: u(t) = Kp * (r(t) - y(t))
+    let r = setpointSlider.value() / 100; // The slider uses values from 0-100%
+    let y = upperWaterPercent;
+    let e = r - y;
+    // if (Integral part) {. . .}
+
+    let u = constrain(Kp * e, 0, 1); // Normalized to be within 0-100% of possible output
+    return (u * inflow_rate_max); 
+  }
 }

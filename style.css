@@ -116,6 +116,7 @@ button:hover {
   gap: 12px;
 }
 
+#setpoint-slider,
 #inflow-slider {
   transform: rotate(270deg);
   appearance: none;
@@ -128,7 +129,8 @@ button:hover {
   cursor: grab;
 }
 
-#inflow-slider::-webkit-slider-thumb {
+#inflow-slider::-webkit-slider-thumb,
+#setpoint-slider::-webkit-slider-thumb {
   appearance: none;
   transform: rotate(-90deg);
   width: 25px;
@@ -145,7 +147,8 @@ button:hover {
   border: none;
 }
 
-#inflow-slider:active::-webkit-slider-thumb {
+#inflow-slider:active::-webkit-slider-thumb,
+#setpoint-slider:active::-webkit-slider-thumb  {
   cursor: grabbing;
 }
 
@@ -163,7 +166,8 @@ button:hover {
   color: #333;
 }
 
-#styrsignal-slider-box {
+#inflow-slider-box,
+#setpoint-slider-box {
   position: relative;
   background-color: #f9f9f9;
   border: 2px solid #333;
@@ -173,7 +177,8 @@ button:hover {
   transform-origin: top left;
   z-index: 50;
 }
-#inflow-value {
+#inflow-value,
+#setpoint-value {
   width: 60px;
   margin-top: 10px;
   font-size: 14px;
