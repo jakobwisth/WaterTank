@@ -1,30 +1,54 @@
 
-let sliderTop;
-let upperWaterPercent = 0.0; // percentage of tank filled (0 to 1)
-let lowerWaterPercent = 0.0;
-let padding = 20;
+//Simulation globals
 let filling = true;
 let draining = false;
 let leaking = false;
-let droplets = [];
 let pauseSim = false;
 let clogLower = false;
 let clogUpper = false;
-let canvas;
-let slidertop;
 let speedup = 1;
-let P_control = false;
-let Kp = 20;
+let upperWaterPercent = 0.0;
+let lowerWaterPercent = 0.0;
+let droplets = [];
 
+// Position globals
+let canvas;
 let x_controls;
 let y_controls;
 let controlSize;
+let sliderTop;
+let slidertop;
+let padding = 20;
 
-let graphDuration = 15; // seconds
+
+// PID control globals
+let P_control = false;
+let controlLower = false;
+let controlUpper = true;
+let Kp = 20;
+let Ti = 0; 
+let Td = 0;
+let previousTi = Ti;
+let integral = 0;
+let previousError = 0;
+let previousDerivative = 0;
+let previousY = 0;
+let P_part = 0;
+let I_part = 0;
+let D_part = 0;
+let u = 0;
+
+// Graph globals
+let graphDuration = 60;
+let simTime = 0;    
+let lastFrameTime = 0; 
 let upperLevelHistory = [];
 let lowerWaterHistory = [];
-let simTime = 0;         // seconds
-let lastFrameTime = 0;   // for calculating delta
+let referenceHistory = [];
+let P_history = [];
+let I_history = [];
+let D_history = [];
+let U_history = [];
 
 
 function setup() {
@@ -33,11 +57,14 @@ function setup() {
   canvas.position(0,0)
   canvas.parent("canvas-container");
   lastFrameTime = millis() / 1000;
+  frameRate(20); 
 
   clickables();
   
   fillBtn.style('background', 'green');
   controlBtn.style('background', 'red');
+  controlLowerBtn.style('background', 'red');
+  controlUpperBtn.style('background', 'green');
   
 }
 function draw() {
@@ -61,15 +88,20 @@ if(!pauseSim){
 
   upperLevelHistory.push({ t: simTime, value: upperWaterPercent * 100 });
   lowerWaterHistory.push({ t :simTime, value: lowerWaterPercent * 100 });
-
+  P_history.push({ t: simTime, value: P_part * 100 });
+  I_history.push({ t: simTime, value: I_part * 100 });
+  D_history.push({ t: simTime, value: D_part * 100 });
+  U_history.push({ t: simTime, value: u * 100 });
+  referenceHistory.push({ t: simTime, value: setpointSlider.value()});
 }
 lastFrameTime = currentTime;
-  drawLineGraph();
+  drawLineGraph(1);
+  drawLineGraph(2);
 
 
-  let x_upperTank = width * 0.40;
-  let y_upperTank = height * 0.15;
   let tankSize = min(width, height) * 0.25;
+  let x_upperTank = (width * 0.38);
+  let y_upperTank = height * 0.15;
   let tankGap = height * 0.05;
   let connectorWidth = tankSize * 0.05;
 
@@ -84,17 +116,13 @@ lastFrameTime = currentTime;
   fill(255); stroke(0);
   
   // Draw tanks+connector
-  rect(x_upperTank, y_upperTank, tankSize, tankSize);
-  rect(x_upperTank, y_upperTank + tankSize + tankGap, tankSize, tankSize);
-  rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
-
-  // Drawing control box
-  rect(x_controls, y_controls, controlSize*0.7, controlSize*1.45); 
+  rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap, tankSize/2, tankSize);
+  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
 
-  
 
-  //Water Logic
+  //Water Logic ( Maybe place in seperate function )
     //Water Logic
     h1 = upperWaterPercent * 0.16; // 16 cm höjd
     h2 = lowerWaterPercent * 0.16;  // h1 and h2 are the water heights inside tank 1 and 2 respectively
@@ -102,7 +130,7 @@ lastFrameTime = currentTime;
     a1 = 3.1 * Math.pow(10,-6);
     a2 = a1;
   
-    let dt = ( 1 / 60 ) * speedup; // This assumes the system is running on 60fps***
+    let dt = ( 1 / 20 ) * speedup; // Assuming running at 20 fps (given at setup, with frameRate(20); )
     let A = 4.9 * Math.pow(10, -4); // tank area
   
     let upper_q_out = a1 * sqrt(2 * g * h1);
@@ -110,7 +138,7 @@ lastFrameTime = currentTime;
   
     // Inflow adjustable by slider (0 to max alpha from lab, which is 2.1e-5 m^3/s)
     let inflow_rate_max = 2.1 * Math.pow(10, -5);
-    let inflow_rate = getInflow(inflow_rate_max); 
+    let inflow_rate = getInflow(inflow_rate_max, simTime); 
     let upper_q_in = filling ? inflow_rate : 0;
     let lower_q_in = upper_q_out;
   
@@ -143,24 +171,20 @@ lastFrameTime = currentTime;
 
   // Update slider and controls positions
   resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
-
   sliderTop.value(upperWaterPercent * tankSize);
   sliderBot.value(lowerWaterPercent * tankSize);
 
-  // Draw water
+  // Draw water and tanks
   fill(0, 0, 255); noStroke();
-  rect(x_upperTank, y_upperTank + tankSize - upperWaterLevel, tankSize, upperWaterLevel); // Tank 1 water
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize - upperWaterLevel, tankSize/2, upperWaterLevel); // Tank 1 water
   if (upperWaterLevel > 0) {
-    rect(x_upperTank + tankSize / 2 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap); // Connector water
-    rect(x_upperTank + tankSize / 2 - connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
+    rect(x_upperTank + tankSize*3/4  - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap); // Connector water
+    rect(x_upperTank + tankSize*3/4- connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
   }
-  rect(x_upperTank, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize, lowerWaterLevel); //Tank 2 water
-  
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
 
-  if (leaking && !pauseSim) drawLeak(x_upperTank, y_upperTank);
-
+  // and drawing texts
   let uText = `u(t): ${nf(inflow_rate / inflow_rate_max, 1, 2)}`;
-
   textAlign(RIGHT, BOTTOM);
   fill(0);
   textSize(14);
@@ -190,14 +214,17 @@ function resizeControls(x, y, size, gap) {
 
   let inflowBox = select('#inflow-slider-box');
   let setpointBox = select('#setpoint-slider-box');
+  let PIDBox = select('#PID-variables-slider-box');
   let scaleFactor = size / 200;
   let x_controlSlider = x_controls + controlSize / 5;
   let y_inflowSlider =  y_controls + controlSize / 10;
   
-  inflowBox.position(x_controlSlider, y_inflowSlider);
+  inflowBox.position(x_controlSlider+ size/1.5, y_inflowSlider);
   inflowBox.style('transform', `scale(${scaleFactor})`);
-  setpointBox.position(x_controlSlider, y_inflowSlider + 1.3*size);
+  setpointBox.position(x_controlSlider, y_inflowSlider);
   setpointBox.style('transform', `scale(${scaleFactor})`);
+  PIDBox.position(x_controlSlider, y_inflowSlider + 1.3*size);
+  PIDBox.style('transform', `scale(${scaleFactor})`);
   
 
   let controlsX = x_controlSlider;
@@ -230,109 +257,151 @@ function getCanvasSize() {
   return { canvasWidth, canvasHeight };
 }
 
+function drawLineGraph(graph) {
+  let graphX = 0;
+  let graphY = 0;
+  const graphWidth = width * 0.4;
+  const graphHeight = height * 0.4;
 
-
-function drawLeak(xBase, yBase) {
-  if (frameCount % 5 === 0) {
-    droplets.push({ x: random(xBase, xBase + 200), y: yBase, speed: random(1, 3), duration: 0 });
+  if (graph == 1) {
+    graphX = width - graphWidth - padding;
+    graphY = padding;
+  }
+  if (graph == 2) {
+    graphX = width - graphWidth - padding;
+    graphY = height / 2;
   }
 
-  for (let i = droplets.length - 1; i >= 0; i--) {
-    let d = droplets[i];
-    fill(100, 100, 255, 180);
-    noStroke();
-    ellipse(d.x, d.y, 5, 8);
-    d.y += d.duration < 6 ? -d.speed : d.speed;
-    d.x += d.x > 225 ? d.speed / 2 : -d.speed / 2;
-    d.duration++;
-    if (d.y > height) droplets.splice(i, 1);
-  }
-}
-
-function drawLineGraph() {
-
-  //placement and size of graph
-  const graphWidth = width * 0.3;
-  const graphHeight = height * 0.3;
-  const graphX = width - graphWidth - padding;
-  const graphY = padding;
-
-  // simulation time (for x axis)
   const now = simTime;
   const minTime = Math.max(0, now - graphDuration);
   const maxTime = minTime + graphDuration;
 
-  // draw background
   stroke(0);
   fill(255);
   strokeWeight(1);
   rect(graphX, graphY, graphWidth, graphHeight);
 
-  // ---Drawing grids---
-  // Y-axis
+  // -- Y axis -- 
+  let yMin = (graph === 2) ? -1 : 0; // If true = -1,  if false = 0
+  let yMax = (graph === 2) ? 1 : 100;
+
   stroke(220);
-  for (let yVal = 0; yVal <= 100; yVal += 10) {
-    let y = map(yVal, 0, 100, graphY + graphHeight, graphY);
+  strokeWeight(1); 
+
+  const yStep = (graph === 2) ? 0.2 : 10;
+  for (let yVal = yMin; yVal <= yMax + 0.001; yVal += yStep) {
+    let y = map(yVal, yMin, yMax, graphY + graphHeight, graphY);
     line(graphX, y, graphX + graphWidth, y);
+
     noStroke();
     fill(80);
     textAlign(RIGHT, CENTER);
-    if(yVal%20 == 0){    {text(`${yVal}%`, graphX - 5, y);}}
+    if (graph === 1) {
+      text(`${nf(yVal, 1, 0)}%`, graphX - 5, y);
+    } else {
+      text(`${nf(yVal, 1, 1)}`, graphX - 5, y);
+    }
     stroke(220);
   }
-  // X-axis
-  stroke(220);
+
+  // -- X-axis --
   const xStep = 1;
+  stroke(220);
   for (let sec = Math.ceil(minTime / xStep) * xStep; sec <= maxTime; sec += xStep) {
     let x = map(sec, minTime, maxTime, graphX, graphX + graphWidth);
     line(x, graphY, x, graphY + graphHeight);
     noStroke();
     fill(80);
     textAlign(CENTER, TOP);
-    if(sec%5 == 0){text(`${nf(sec, 2, 1)}s`, x, graphY + graphHeight + 5);}
+    if (sec % 5 == 0) {
+      text(`${nf(sec, 2, 1)}s`, x, graphY + graphHeight + 5);
+    }
     stroke(220);
   }
-  // Ticks on x axis
+
+  // -- Tick marks --
   stroke(100);
   strokeWeight(1);
   for (let sec = Math.ceil(minTime); sec <= maxTime; sec++) {
     let x = map(sec, minTime, maxTime, graphX, graphX + graphWidth);
     line(x, graphY + graphHeight - 3, x, graphY + graphHeight + 6); 
   }
+
+  // -- Data lines -- 
+  if (graph === 2) {
+    drawHistoryLine(P_history, 'red', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
+    drawHistoryLine(I_history, 'green', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
+    drawHistoryLine(D_history, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
+    drawHistoryLine(U_history, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
+  }
+
+  if (graph === 1) {
+    drawHistoryLine(upperLevelHistory, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+    drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+    drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax)
+  }
+  
+
+  // -- legend --
+  const legendX = graphX + 10;
+  let legendY = graphY + 10;
+  const spacing = width/75;
+  let legendItems = [];
+  if (graph === 2) {
+    legendItems = [
+      { label: 'P', color: 'red' },
+      { label: 'I', color: 'green' },
+      { label: 'D', color: 'blue' },
+      { label: 'U = P + I + D', color: 'black' }
+    ];
+  }
+
+  if (graph == 1 ) {
+    legendItems = [
+      { label: 'Upper tank', color: 'red' },
+      { label: 'Lower tank', color: 'blue'},
+      { label: 'Reference', color: 'black'}
+    ];
+  }
+   
+    textAlign(LEFT, CENTER);
+    textSize(width/100);
+    noStroke();
+  
+    for (let item of legendItems) {
+      fill(item.color);
+      rect(legendX, legendY - 5, width/150, width/150);
+      fill(0);
+      text(item.label, legendX + width/50, legendY);
+      legendY += spacing;
+    }
+  
+
   strokeWeight(1);
+}
 
-
-  // --Drawing data lines--
+function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, valueTransform = null) {
+  noFill();
   strokeWeight(2);
-  stroke(0, 0, 255);
-  noFill();
   beginShape();
-  for (let d of upperLevelHistory) {
+  for (let d of data) {
     if (d.t >= minTime && d.t <= maxTime) {
+      let rawVal = valueTransform ? valueTransform(d.value) : d.value;
+      let clamped = constrain(rawVal, yMin, yMax);
       let x = map(d.t, minTime, maxTime, graphX, graphX + graphWidth);
-      let y = map(d.value, 0, 100, graphY + graphHeight, graphY);
-      vertex(x, y);
-    }
-  }
-  endShape();
+      let y = map(clamped, yMin, yMax, graphY + graphHeight, graphY);
 
-    stroke('#cc0033');
-  noFill();
-  beginShape();
-  for (let d of lowerWaterHistory) {
-    if (d.t >= minTime && d.t <= maxTime) {
-      let x = map(d.t, minTime, maxTime, graphX, graphX + graphWidth);
-      let y = map(d.value, 0, 100, graphY + graphHeight, graphY);
+      // Optional: mark out-of-bound values
+      stroke((rawVal !== clamped) ? 'red' : color);
       vertex(x, y);
     }
   }
   endShape();
-  strokeWeight(1); //reset so lines are good on tank, etc
 }
 
 //-------------------------
 
-function resetButtonColors() {
+function resetButtonColors() { // delete ?
   fillBtn.style('background-color', '#0077cc');
   drainBtn.style('background-color', '#0077cc');
   //controlBtn.style('background-color', '#0077cc');
@@ -340,9 +409,10 @@ function resetButtonColors() {
 
 function clickables(){
 
-  // Make <div> in html, and style in style.css
-
-// Make variables of the clickables
+  // When adding buttons / etc
+  //    1. Make <div> in html
+  //    2. Style said div in style.css
+  //    3. Implement what the div (button etc) does here, in clickables.
 
 // NOTE: might be smart to move some if they are only used once. (i.e inflowBox and setpointbox)
   sliderTop = select('#top-slider');
@@ -354,35 +424,68 @@ function clickables(){
   buttons = select('#controls');
   clogLowerBtn = select('#clog-lower-btn');
   clogUpperBtn = select('#clog-upper-btn');
+  controlUpperBtn = select('#control-upper-btn');
+  controlLowerBtn = select('#control-lower-btn');
   inflowSlider = select('#inflow-slider');
   inflowValue = select('#inflow-value');
   setpointSlider = select('#setpoint-slider');
   setpointValue = select('#setpoint-value');
-  
-// How the clickables will function here
 
-inflowValue.changed(() => {
-  let typedValue = parseFloat(inflowValue.value());
-  if (!isNaN(typedValue)) {
-    let clamped = constrain(typedValue, 0, 1);
-    inflowValue.value(nf(clamped, 1, 2)); 
-    inflowSlider.value(clamped * 100);
-  }
-});
+  KpSlider = select('#Kp-slider');
+  KpValue = select('#Kp-value');
+  TiSlider = select('#Ti-slider');
+  TiValue = select('#Ti-value');
+  TdSlider = select('#Td-slider');
+  TdValue = select('#Td-value');
 
-setpointValue.changed(() => {
-  let typedValue = parseFloat(setpointValue.value());
-  if (!isNaN(typedValue)) {
-    let clamped = constrain(typedValue, 0, 1);
-    setpointValue.value(nf(clamped, 1, 2)); 
-    setpointSlider.value(clamped * 100);
-  }
-});
+    
+  // How the clickables will function here
 
-  sliderTop.input(() => {
-    let tankSize = min(width, height) * 0.25;
-    upperWaterPercent = constrain(sliderTop.value() / tankSize, 0, 1);
+  inflowValue.changed(() => {
+    let typedValue = parseFloat(inflowValue.value());
+    if (!isNaN(typedValue)) {
+      let clamped = constrain(typedValue, 0, 1);
+      inflowValue.value(nf(clamped, 1, 2)); 
+      inflowSlider.value(clamped * 100);
+    }
   });
+
+  setpointValue.changed(() => {
+    let typedValue = parseFloat(setpointValue.value());
+    if (!isNaN(typedValue)) {
+      let clamped = constrain(typedValue, 0, 1);
+      setpointValue.value(nf(clamped, 1, 2)); 
+      setpointSlider.value(clamped * 100);
+    }
+  });
+
+  KpValue.changed(() => {
+    let typedValue = parseFloat(KpValue.value());
+    if (!isNaN(typedValue)) {
+      Kp = typedValue;
+      KpSlider.value(Kp);
+      KpValue.value(nf(Kp, 1, 2));
+    }
+  });
+  TiValue.changed(() => {
+    let typedValue = parseFloat(TiValue.value());
+    if (!isNaN(typedValue)) {
+      let clamped = constrain(typedValue, 0, 50);
+      Ti = clamped;
+      TiSlider.value(clamped);
+      TiValue.value(nf(clamped, 1, 2));
+    }
+  });
+  TdValue.changed(() => {
+    let typedValue = parseFloat(TdValue.value());
+    if (!isNaN(typedValue)) {
+      let clamped = constrain(typedValue, 0, 50);
+      Td = clamped;
+      TdSlider.value(clamped);
+      TdValue.value(nf(clamped, 1, 2));
+    }
+  });
+
 
   inflowSlider.input(() => {
     let percent = inflowSlider.value() / 100;
@@ -393,6 +496,27 @@ setpointValue.changed(() => {
     setpointValue.value(nf(percent, 1, 2));
   });
   
+  KpSlider.input(() => {
+    let sliderVal = parseFloat(KpSlider.value());
+    Kp = sliderVal;
+    KpValue.value(nf(sliderVal, 1, 2));
+  });
+  TiSlider.input(() => {
+    let sliderVal = parseFloat(TiSlider.value());
+    Ti = sliderVal;
+    TiValue.value(nf(sliderVal, 1, 2));
+  });
+  TdSlider.input(() => {
+    let sliderVal = parseFloat(TdSlider.value());
+    Td = sliderVal;
+    TdValue.value(nf(sliderVal, 1, 2));
+  });
+
+
+  sliderTop.input(() => {
+    let tankSize = min(width, height) * 0.25;
+    upperWaterPercent = constrain(sliderTop.value() / tankSize, 0, 1);
+  });
   sliderBot.input(() => {
     let tankSize = min(width, height) * 0.25;
     lowerWaterPercent = constrain(sliderBot.value() / tankSize, 0, 1);
@@ -416,9 +540,27 @@ setpointValue.changed(() => {
     if(clogUpper){clogUpperBtn.style('background-color', 'green');}
     else{clogUpperBtn.style('background-color', '#0077cc');}
   });
+
+  controlUpperBtn.mousePressed(() => {
+    controlUpper = true;
+    controlLower = false;
+
+    controlUpperBtn.style('background-color', 'green');
+    controlLowerBtn.style('background-color', 'red');
+
+  });
+
+  controlLowerBtn.mousePressed(() => {
+    controlLower = true;
+    controlUpper = false;
+
+    controlLowerBtn.style('background-color', 'green');
+    controlUpperBtn.style('background-color', 'red');
+
+  });
   drainBtn.mousePressed(() => {
     filling = false;
-    resetButtonColors();
+    resetButtonColors(); ///// might wanna check this out again and delete this
     drainBtn.style('background-color', 'green');
     
   });
@@ -426,10 +568,15 @@ setpointValue.changed(() => {
   controlBtn.mousePressed(() => {
 
     P_control = !P_control;
-    if(!P_control){controlBtn.style('background-color', 'red');}
-    else{controlBtn.style('background-color', 'green');}
-  });
 
+    if (P_control) {
+      integral = 0;
+      previousError = 0;
+      controlBtn.style('background-color', 'green');
+    } else {
+      controlBtn.style('background-color', 'red');
+    }
+  });
   pauseBtn.mousePressed(() => {
     pauseSim = !pauseSim;
     leaking = false;
@@ -438,20 +585,47 @@ setpointValue.changed(() => {
   });
 }
 
-function getInflow(inflow_rate_max){
-  if (!P_control){
-    return (inflowSlider.value() / 100) * inflow_rate_max; // inflow slider: 0–100%
-  }
-  else{
-    // Proportional part
-        // set inflow based on setpoint (r) value
-        // P: u(t) = Kp * (r(t) - y(t))
-    let r = setpointSlider.value() / 100; // The slider uses values from 0-100%
-    let y = upperWaterPercent;
-    let e = r - y;
-    // if (Integral part) {. . .}
 
-    let u = constrain(Kp * e, 0, 1); // Normalized to be within 0-100% of possible output
-    return (u * inflow_rate_max); 
+function getInflow(inflow_rate_max, t) {
+  if (!P_control) {
+    return (inflowSlider.value() / 100) * inflow_rate_max;
+  } else {
+
+    // PID CALCULATIONS 
+    let r = setpointSlider.value() / 100;  // Reference (setpoint)
+    let y = lowerWaterPercent;  
+    if(controlUpper){
+      y = upperWaterPercent;
+    }
+    if(controlLower){
+      y = lowerWaterPercent;
+    }
+
+    let e = r - y;                        // Error
+    let dt = (1 / 20) * speedup;       
+
+    // --- P Part ---
+    P_part = Kp * e;
+
+    // --- I Part ---
+    if (Ti !== previousTi) {
+      integral = 0;
+      previousTi = Ti;
+    }
+    integral += e * dt;
+    I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0;
+
+    // -- D Part --
+    let dy = (y - previousY) / dt;
+    let derivative = -dy;
+    let filteredD = 0.9 * previousDerivative + 0.1 * derivative;
+    D_part = (Td > 0) ? Kp * Td * filteredD : 0;
+    previousY = y;
+    previousDerivative = filteredD;
+
+    // --- Total Control Signal ---
+    u = constrain(P_part + I_part + D_part, 0, 1);  
+
+    return u * inflow_rate_max;
   }
 }

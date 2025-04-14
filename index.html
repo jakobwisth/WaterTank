@@ -38,6 +38,38 @@
       <input type="number" id="setpoint-value" min="0" max="1" step="0.01" value="0.0" />
   </div>
 
+  <div id="PID-variables-slider-box">
+    <div class = "PID-parameters">PID parameters</div>
+    <div class="PID-titles">
+      <div class="slider-title">Kp</div>
+      <div class="slider-title">Ti</div>
+      <div class="slider-title">Td</div>
+    </div>
+    <div class="slider-paired-row">
+      <input type="range" id="Kp-slider" min="0" max="50" value="0"step="0.01" />
+      <div class="slider-labels">
+        <div class="scale-label">50.0</div>
+        <div class="scale-label">0.0</div>
+      </div>
+      <input type="range" id="Ti-slider" min="0" max="50" value="0" step="0.01"/>
+      <div class="slider-labels">
+        <div class="scale-label">50.0</div>
+        <div class="scale-label">0.0</div>
+      </div>
+      <input type="range" id="Td-slider" min="0" max="50" value="0" step="0.01"/>
+      <div class="slider-labels">
+        <div class="scale-label">50.0</div>
+        <div class="scale-label">0.0</div>
+      </div>
+    </div>
+    <div class = "PID-numbers">
+      <input type="number" id="Kp-value" min="0" max="50" step="0.1" value="0.0" />
+      <input type="number" id="Ti-value" min="0" max="50" step="0.1" value="0.0" />
+      <input type="number" id="Td-value" min="0" max="50" step="0.1" value="0.0" />
+    </div>
+</div>
+
+
     <!--Sliders-->
     <input type="range" id="top-slider"/>
     <input type="range" id="bot-slider"/>
@@ -50,6 +82,8 @@
       <button id="control-btn">P control</button>
       <button id="clog-lower-btn">Clog lower</button>
       <button id="clog-upper-btn">Clog upper</button>
+      <button id="control-upper-btn">Control upper</button>
+      <button id="control-lower-btn">Control Lower</button>
     </div>
 </body>
 </html>
