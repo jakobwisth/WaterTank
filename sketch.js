@@ -11,6 +11,7 @@ let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
 let fps = 20;
+let simAccumulator = 0;
 
 // Position globals
 let canvas;
@@ -74,32 +75,25 @@ function draw() {
 
   textAlign(LEFT, TOP);
   text(`Canvas: ${width} x ${height}`, 10, 10);
-
-  textAlign(LEFT, TOP);
   text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
 
- 
-
-  
   let currentTime = millis() / 1000;
   let deltaTime = currentTime - lastFrameTime;
+  lastFrameTime = currentTime;
+  
+  simAccumulator += deltaTime;
+  let simStep = 1 / fps; 
+  
+  while (simAccumulator >= simStep) {
+    runSimulationStep(simStep);  
+    simAccumulator -= simStep;
+  }
 
-if(!pauseSim){
-  simTime += deltaTime;
-
-  upperLevelHistory.push({ t: simTime, value: upperWaterPercent * 100 });
-  lowerWaterHistory.push({ t :simTime, value: lowerWaterPercent * 100 });
-  P_history.push({ t: simTime, value: P_part * 100 });
-  I_history.push({ t: simTime, value: I_part * 100 });
-  D_history.push({ t: simTime, value: D_part * 100 });
-  U_history.push({ t: simTime, value: u * 100 });
-  referenceHistory.push({ t: simTime, value: setpointSlider.value()});
-}
-lastFrameTime = currentTime;
+  // Drawing graphs
   drawLineGraph(1);
   drawLineGraph(2);
 
-
+ // Tank sizes
   let tankSize = min(width, height) * 0.25;
   let x_upperTank = (width * 0.38);
   let y_upperTank = height * 0.15;
@@ -113,62 +107,11 @@ lastFrameTime = currentTime;
   let upperWaterLevel = upperWaterPercent * tankSize;
   let lowerWaterLevel = lowerWaterPercent * tankSize;
 
-  // Draw boxes
-  fill(255); stroke(0);
-  
   // Draw tanks+connector
+  fill(255); stroke(0);
   rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap, tankSize/2, tankSize);
   rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
-
-
-
-  //Water Logic ( Maybe place in seperate function )
-    //Water Logic
-    h1 = upperWaterPercent * 0.16; // 16 cm höjd
-    h2 = lowerWaterPercent * 0.16;  // h1 and h2 are the water heights inside tank 1 and 2 respectively
-    g = 9.82;
-    a1 = 3.1 * Math.pow(10,-6);
-    a2 = a1;
-  
-    let dt = ( 1 / fps ) * speedup; // Assuming running at 20 fps (given at setup, with frameRate(20); )
-    let A = 4.9 * Math.pow(10, -4); // tank area
-  
-    let upper_q_out = a1 * sqrt(2 * g * h1);
-    let lower_q_out = a2 * sqrt(2 * g * h2);
-  
-    // Inflow adjustable by slider (0 to max alpha from lab, which is 2.1e-5 m^3/s)
-    let inflow_rate_max = 2.1 * Math.pow(10, -5);
-    let inflow_rate = getInflow(inflow_rate_max, simTime); 
-    let upper_q_in = filling ? inflow_rate : 0;
-    let lower_q_in = upper_q_out;
-  
-    if (!pauseSim) {
-      if (filling) {
-        h1 += (upper_q_in * dt / A); 
-      }
-      if (clogUpper) {
-        upper_q_out = 0;
-      }
-  
-      h1 -= (upper_q_out * dt / A);
-      h2 += (upper_q_out * dt / A); // inflow to lower tank
-  
-      if (!clogLower) {
-        h2 -= (lower_q_out * dt / A);
-      }
-
-  
-      if (h1 < 0) h1 = 0;
-      if (h1 > 0.16) h1 = 0.16;
-  
-      if (h2 < 0) h2 = 0;
-      if (h2 > 0.16) h2 = 0.16;
-  
-      // Convert back to percentage
-      upperWaterPercent = h1 / 0.16;
-      lowerWaterPercent = h2 / 0.16;
-    }
 
   // Update slider and controls positions
   resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
@@ -184,16 +127,79 @@ lastFrameTime = currentTime;
   }
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
 
-  // and drawing texts
+    // Update controls
+    resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
+    sliderTop.value(upperWaterPercent * tankSize);
+    sliderBot.value(lowerWaterPercent * tankSize);
+
+  // Display u(t)
+  let inflow_rate_max = 2.1 * Math.pow(10, -5);
+  let inflow_rate = getInflow(inflow_rate_max, simTime);
   let uText = `u(t): ${nf(inflow_rate / inflow_rate_max, 1, 2)}`;
   textAlign(RIGHT, BOTTOM);
   fill(0);
   textSize(14);
   text(uText, width - 10, height - 10);
-  textAlign(RIGHT, BOTTOM);
   text(`Kp ${nf(Kp)}`, width - 10, height - 30);
-  
+
 }
+
+function runSimulationStep(dt) {
+  simTime += dt;
+
+  // --- Water logic ---
+  let inflow_rate_max = 2.1 * Math.pow(10, -5);
+  let inflow_rate = getInflow(inflow_rate_max, simTime);
+  let A = 4.9 * Math.pow(10, -4);
+
+  let h1 = upperWaterPercent * 0.16;
+  let h2 = lowerWaterPercent * 0.16;
+  let g = 9.82;
+  let a1 = 3.1 * Math.pow(10, -6);
+  let a2 = a1;
+
+  let upper_q_out = a1 * Math.sqrt(2 * g * h1);
+  let lower_q_out = a2 * Math.sqrt(2 * g * h2);
+
+  let upper_q_in = filling ? inflow_rate : 0;
+  let lower_q_in = upper_q_out;
+
+  if (clogUpper) upper_q_out = 0;
+  if (clogLower) lower_q_out = 0;
+
+  if (filling) h1 += upper_q_in * dt / A;
+  h1 -= upper_q_out * dt / A;
+  h2 += upper_q_out * dt / A;
+  h2 -= lower_q_out * dt / A;
+
+  h1 = constrain(h1, 0, 0.16);
+  h2 = constrain(h2, 0, 0.16);
+
+  upperWaterPercent = h1 / 0.16;
+  lowerWaterPercent = h2 / 0.16;
+
+  // --- Data logging ---
+  upperLevelHistory.push({ t: simTime, value: upperWaterPercent * 100 });
+  lowerWaterHistory.push({ t: simTime, value: lowerWaterPercent * 100 });
+  P_history.push({ t: simTime, value: P_part * 100 });
+  I_history.push({ t: simTime, value: I_part * 100 });
+  D_history.push({ t: simTime, value: D_part * 100 });
+  U_history.push({ t: simTime, value: u * 100 });
+  referenceHistory.push({ t: simTime, value: setpointSlider.value() });
+
+  // --- History trimming ---
+  let maxLength = fps * graphDuration;
+  if (upperLevelHistory.length > maxLength) {
+    upperLevelHistory.shift();
+    lowerWaterHistory.shift();
+    P_history.shift();
+    I_history.shift();
+    D_history.shift();
+    U_history.shift();
+    referenceHistory.shift();
+  }
+}
+
 
 function resizeControls(x, y, size, gap) {
   let pointerOffset = 18;
@@ -237,6 +243,8 @@ function resizeControls(x, y, size, gap) {
   drainBtn.hide();
 
 }
+
+
 
 function windowResized() {
   const { canvasWidth, canvasHeight } = getCanvasSize();
