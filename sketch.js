@@ -10,7 +10,7 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
-let fps = 60;
+let fps = 20;
 
 // Position globals
 let canvas;
@@ -341,6 +341,7 @@ function drawLineGraph(graph) {
     drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
     drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax)
   }
+
   
 
   // -- legend --
@@ -391,12 +392,21 @@ function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, m
       let clamped = constrain(rawVal, yMin, yMax);
       let x = map(d.t, minTime, maxTime, graphX, graphX + graphWidth);
       let y = map(clamped, yMin, yMax, graphY + graphHeight, graphY);
-
-      // Optional: mark out-of-bound values
       stroke((rawVal !== clamped) ? 'red' : color);
       vertex(x, y);
     }
   }
+
+  let maxLength = fps * graphDuration;
+if (upperLevelHistory.length > maxLength) {
+  upperLevelHistory.shift();
+  lowerWaterHistory.shift();
+  P_history.shift();
+  I_history.shift();
+  D_history.shift();
+  U_history.shift();
+  referenceHistory.shift();
+}
   endShape();
 }
 
