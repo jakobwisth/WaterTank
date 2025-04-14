@@ -10,7 +10,7 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
-let fps = 40;
+let fps = 60;
 
 // Position globals
 let canvas;
