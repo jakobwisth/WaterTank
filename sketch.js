@@ -10,6 +10,7 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
+let fps = 40;
 
 // Position globals
 let canvas;
@@ -57,7 +58,7 @@ function setup() {
   canvas.position(0,0)
   canvas.parent("canvas-container");
   lastFrameTime = millis() / 1000;
-  frameRate(20); 
+  frameRate(fps); 
 
   clickables();
   
@@ -130,7 +131,7 @@ lastFrameTime = currentTime;
     a1 = 3.1 * Math.pow(10,-6);
     a2 = a1;
   
-    let dt = ( 1 / 20 ) * speedup; // Assuming running at 20 fps (given at setup, with frameRate(20); )
+    let dt = ( 1 / fps ) * speedup; // Assuming running at 20 fps (given at setup, with frameRate(20); )
     let A = 4.9 * Math.pow(10, -4); // tank area
   
     let upper_q_out = a1 * sqrt(2 * g * h1);
@@ -602,7 +603,7 @@ function getInflow(inflow_rate_max, t) {
     }
 
     let e = r - y;                        // Error
-    let dt = (1 / 20) * speedup;       
+    let dt = (1 / fps) * speedup;       
 
     // --- P Part ---
     P_part = Kp * e;
