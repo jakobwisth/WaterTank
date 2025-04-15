@@ -10,8 +10,6 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
-let fps = 60;
-let simAccumulator = 0;
 
 // Position globals
 let canvas;
@@ -27,9 +25,9 @@ let padding = 20;
 let P_control = false;
 let controlLower = false;
 let controlUpper = true;
-let Kp = 20;
-let Ti = 0; 
-let Td = 0;
+let Kp = 2;
+let Ti = 6; 
+let Td = 1;
 let previousTi = Ti;
 let integral = 0;
 let previousError = 0;
@@ -59,7 +57,6 @@ function setup() {
   canvas.position(0,0)
   canvas.parent("canvas-container");
   lastFrameTime = millis() / 1000;
-  frameRate(fps); 
 
   clickables();
   
@@ -80,14 +77,11 @@ function draw() {
   let currentTime = millis() / 1000;
   let deltaTime = currentTime - lastFrameTime;
   lastFrameTime = currentTime;
-  
-  simAccumulator += deltaTime;
-  let simStep = 1 / fps; 
-  
-  while (simAccumulator >= simStep) {
-    runSimulationStep(simStep);  
-    simAccumulator -= simStep;
+
+  if (!pauseSim) {
+    runSimulationStep(deltaTime);  // run simulation using real dt
   }
+  
 
   // Drawing graphs
   drawLineGraph(1);
@@ -133,9 +127,7 @@ function draw() {
     sliderBot.value(lowerWaterPercent * tankSize);
 
   // Display u(t)
-  let inflow_rate_max = 2.1 * Math.pow(10, -5);
-  let inflow_rate = getInflow(inflow_rate_max, simTime);
-  let uText = `u(t): ${nf(inflow_rate / inflow_rate_max, 1, 2)}`;
+  let uText = `u(t): ${nf(u, 1, 2)}`;
   textAlign(RIGHT, BOTTOM);
   fill(0);
   textSize(14);
@@ -149,7 +141,7 @@ function runSimulationStep(dt) {
 
   // --- Water logic ---
   let inflow_rate_max = 2.1 * Math.pow(10, -5);
-  let inflow_rate = getInflow(inflow_rate_max, simTime);
+  let inflow_rate = getInflow(inflow_rate_max, simTime, dt);
   let A = 4.9 * Math.pow(10, -4);
 
   let h1 = upperWaterPercent * 0.16;
@@ -188,8 +180,11 @@ function runSimulationStep(dt) {
   referenceHistory.push({ t: simTime, value: setpointSlider.value() });
 
   // --- History trimming ---
-  let maxLength = fps * graphDuration;
-  if (upperLevelHistory.length > maxLength) {
+  let minTime = simTime - graphDuration;
+  while (
+    upperLevelHistory.length > 0 &&
+    upperLevelHistory[0].t < minTime
+  ) {
     upperLevelHistory.shift();
     lowerWaterHistory.shift();
     P_history.shift();
@@ -404,17 +399,6 @@ function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, m
       vertex(x, y);
     }
   }
-
-  let maxLength = fps * graphDuration;
-if (upperLevelHistory.length > maxLength) {
-  upperLevelHistory.shift();
-  lowerWaterHistory.shift();
-  P_history.shift();
-  I_history.shift();
-  D_history.shift();
-  U_history.shift();
-  referenceHistory.shift();
-}
   endShape();
 }
 
@@ -605,7 +589,7 @@ function clickables(){
 }
 
 
-function getInflow(inflow_rate_max, t) {
+function getInflow(inflow_rate_max, t, dt) {
   if (!P_control) {
     return (inflowSlider.value() / 100) * inflow_rate_max;
   } else {
@@ -621,7 +605,6 @@ function getInflow(inflow_rate_max, t) {
     }
 
     let e = r - y;                        // Error
-    let dt = (1 / fps) * speedup;       
 
     // --- P Part ---
     P_part = Kp * e;
