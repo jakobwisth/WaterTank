@@ -24,7 +24,9 @@ canvas {
   border: 2px solid #333;
 }
 
-#controls {
+#controls,
+#controls2,
+#controls3 {
   display: flex;
   justify-content: center;
   gap: 10px;

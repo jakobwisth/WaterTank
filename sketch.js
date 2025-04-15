@@ -22,7 +22,10 @@ let padding = 20;
 
 
 // PID control globals
-let P_control = false;
+let control = false;
+let P_enable = true;
+let I_enable = true;
+let D_enable = true;
 let controlLower = false;
 let controlUpper = true;
 let Kp = 2;
@@ -64,6 +67,9 @@ function setup() {
   controlBtn.style('background', 'red');
   controlLowerBtn.style('background', 'red');
   controlUpperBtn.style('background', 'green');
+  P_enableBtn.style('background-color', 'green');
+  I_enableBtn.style('background-color', 'green');
+  D_enableBtn.style('background-color', 'green');
   
 }
 function draw() {
@@ -232,6 +238,8 @@ function resizeControls(x, y, size, gap) {
   let controlsX = x_controlSlider;
   let controlsY = botSliderY + size;
   buttons.position(controlsX, controlsY);
+  buttons2.position(controlsX, controlsY+50);
+  buttons3.position(controlsX, controlsY+100);
 
 
   fillBtn.hide();
@@ -363,8 +371,8 @@ function drawLineGraph(graph) {
 
   if (graph == 1 ) {
     legendItems = [
-      { label: 'Upper tank', color: 'red' },
-      { label: 'Lower tank', color: 'blue'},
+      { label: 'Upper tank', color: 'blue' },
+      { label: 'Lower tank', color: 'red'},
       { label: 'Reference', color: 'black'}
     ];
   }
@@ -425,9 +433,16 @@ function clickables(){
   controlBtn = select('#control-btn');
   pauseBtn =select('#pause-btn');
   buttons = select('#controls');
+  buttons2 = select('#controls2');
+  buttons3 = select('#controls3');
   clogLowerBtn = select('#clog-lower-btn');
   clogUpperBtn = select('#clog-upper-btn');
   controlUpperBtn = select('#control-upper-btn');
+  controlLowerBtn = select('#control-lower-btn');
+  P_enableBtn = select('#P-control');
+  I_enableBtn = select('#I-control');
+  D_enableBtn = select('#D-control');
+  controlLowerBtn = select('#control-lower-btn');
   controlLowerBtn = select('#control-lower-btn');
   inflowSlider = select('#inflow-slider');
   inflowValue = select('#inflow-value');
@@ -538,12 +553,22 @@ function clickables(){
     else{clogLowerBtn.style('background-color', '#0077cc');}
   });
 
-  clogUpperBtn.mousePressed(() => {
-    clogUpper = !clogUpper;
-    if(clogUpper){clogUpperBtn.style('background-color', 'green');}
-    else{clogUpperBtn.style('background-color', '#0077cc');}
+  P_enableBtn.mousePressed(() => {
+    P_enable = !P_enable;
+    if(!P_enable){P_enableBtn.style('background-color', 'red');}
+    else{P_enableBtn.style('background-color', 'green');}
   });
-
+  I_enableBtn.mousePressed(() => {
+    I_enable = !I_enable;
+    if(!I_enable){I_enableBtn.style('background-color', 'red');}
+    else{I_enableBtn.style('background-color', 'green');}
+  });
+  D_enableBtn.mousePressed(() => {
+    D_enable = !D_enable;
+    if(!D_enable){D_enableBtn.style('background-color', 'red');}
+    else{D_enableBtn.style('background-color', 'green');}
+  });
+  
   controlUpperBtn.mousePressed(() => {
     controlUpper = true;
     controlLower = false;
@@ -570,9 +595,9 @@ function clickables(){
 
   controlBtn.mousePressed(() => {
 
-    P_control = !P_control;
+    control = !control;
 
-    if (P_control) {
+    if (control) {
       integral = 0;
       previousError = 0;
       controlBtn.style('background-color', 'green');
@@ -590,7 +615,7 @@ function clickables(){
 
 
 function getInflow(inflow_rate_max, t, dt) {
-  if (!P_control) {
+  if (!control) {
     return (inflowSlider.value() / 100) * inflow_rate_max;
   } else {
 
@@ -607,23 +632,31 @@ function getInflow(inflow_rate_max, t, dt) {
     let e = r - y;                        // Error
 
     // --- P Part ---
-    P_part = Kp * e;
+    if(P_enable){
+      P_part = Kp * e;
+    } else{P_part = 0;}
+ 
 
     // --- I Part ---
-    if (Ti !== previousTi) {
-      integral = 0;
-      previousTi = Ti;
-    }
-    integral += e * dt;
-    I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0;
+    if(I_enable){
+      if (Ti !== previousTi) {
+        integral = 0;
+        previousTi = Ti;
+      }
+      integral += e * dt;
+      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0;
+    } else { I_part = 0;}
 
     // -- D Part --
-    let dy = (y - previousY) / dt;
-    let derivative = -dy;
-    let filteredD = 0.9 * previousDerivative + 0.1 * derivative;
-    D_part = (Td > 0) ? Kp * Td * filteredD : 0;
-    previousY = y;
-    previousDerivative = filteredD;
+    if(D_enable){
+      let dy = (y - previousY) / dt;
+      let derivative = -dy;
+      let filteredD = 0.9 * previousDerivative + 0.1 * derivative;
+      D_part = (Td > 0) ? Kp * Td * filteredD : 0;
+      previousY = y;
+      previousDerivative = filteredD;
+    } else{ D_part = 0; }
+
 
     // --- Total Control Signal ---
     u = constrain(P_part + I_part + D_part, 0, 1);  
