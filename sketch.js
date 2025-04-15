@@ -80,8 +80,8 @@ function draw() {
   text(`Canvas: ${width} x ${height}`, 10, 10);
   text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
 
-  let currentTime = millis() / 1000;
-  let deltaTime = currentTime - lastFrameTime;
+  let currentTime = millis() / 1000; // (milli)seconds since program started
+  let deltaTime = currentTime - lastFrameTime; // time since last frame
   lastFrameTime = currentTime;
 
   if (!pauseSim) {
