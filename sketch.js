@@ -10,6 +10,7 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
+let tankSize;
 
 // Position globals
 let canvas;
@@ -28,9 +29,9 @@ let I_enable = true;
 let D_enable = true;
 let controlLower = false;
 let controlUpper = true;
-let Kp = 2;
-let Ti = 6; 
-let Td = 1;
+let Kp = 4;
+let Ti = 15; 
+let Td = 5;
 let previousTi = Ti;
 let integral = 0;
 let previousError = 0;
@@ -64,8 +65,11 @@ function setup() {
   clickables();
   
   fillBtn.style('background', 'green');
-  controlBtn.style('background', 'red');
-  controlLowerBtn.style('background', 'red');
+  controlBtn.style('background', 'gray');
+  controlLowerBtn.style('background', 'gray');
+  clogLowerBtn.style('background', 'gray');
+  clogUpperBtn.style('background', 'gray');
+  pauseBtn.style('background', 'gray');
   controlUpperBtn.style('background', 'green');
   P_enableBtn.style('background-color', 'green');
   I_enableBtn.style('background-color', 'green');
@@ -94,7 +98,7 @@ function draw() {
   drawLineGraph(2);
 
  // Tank sizes
-  let tankSize = min(width, height) * 0.25;
+  tankSize = min(width, height) * 0.25;
   let x_upperTank = (width * 0.38);
   let y_upperTank = height * 0.15;
   let tankGap = height * 0.05;
@@ -133,12 +137,16 @@ function draw() {
     sliderBot.value(lowerWaterPercent * tankSize);
 
   // Display u(t)
+  push();
   let uText = `u(t): ${nf(u, 1, 2)}`;
   textAlign(RIGHT, BOTTOM);
   fill(0);
-  textSize(14);
+  textSize(40);
   text(uText, width - 10, height - 10);
-  text(`Kp ${nf(Kp)}`, width - 10, height - 30);
+  pop();
+
+  //Draw PID button schematics
+  drawControlImage();
 
 }
 
@@ -223,23 +231,38 @@ function resizeControls(x, y, size, gap) {
   let inflowBox = select('#inflow-slider-box');
   let setpointBox = select('#setpoint-slider-box');
   let PIDBox = select('#PID-variables-slider-box');
+  let pButton = select('#P-control');
+  let iButton = select('#I-control');
+  let dButton = select('#D-control');
+  let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
   let scaleFactor = size / 200;
-  let x_controlSlider = x_controls + controlSize / 5;
+  let x_controlSlider = x_controls + controlSize/20;
   let y_inflowSlider =  y_controls + controlSize / 10;
+
   
-  inflowBox.position(x_controlSlider+ size/1.5, y_inflowSlider);
-  inflowBox.style('transform', `scale(${scaleFactor})`);
-  setpointBox.position(x_controlSlider, y_inflowSlider);
+  let setpointX = inflowbox.right + size/50;
+  setpointBox.position(setpointX, y_inflowSlider);
   setpointBox.style('transform', `scale(${scaleFactor})`);
+  inflowBox.position(x_controlSlider, y_inflowSlider);
+  inflowBox.style('transform', `scale(${scaleFactor})`);
   PIDBox.position(x_controlSlider, y_inflowSlider + 1.3*size);
   PIDBox.style('transform', `scale(${scaleFactor})`);
   
+  let x_PIDbuttons = x_controlSlider + 2*size
+
+  pButton.position(x_PIDbuttons, y_inflowSlider);
+  pButton.style('transform', `scale(${scaleFactor})`);
+  iButton.position(x_PIDbuttons, y_inflowSlider + size/2);
+  iButton.style('transform', `scale(${scaleFactor})`);
+  dButton.position(x_PIDbuttons, y_inflowSlider + size);
+  dButton.style('transform', `scale(${scaleFactor})`);
 
   let controlsX = x_controlSlider;
   let controlsY = botSliderY + size;
+  // Delete/comment these if you want to change position of the buttons individually. Otherwise it wont position as wanted.
   buttons.position(controlsX, controlsY);
   buttons2.position(controlsX, controlsY+50);
-  buttons3.position(controlsX, controlsY+100);
+  //buttons3.position(controlsX, controlsY+100); // Commented to place P I D buttons seperately.
 
 
   fillBtn.hide();
@@ -356,6 +379,7 @@ function drawLineGraph(graph) {
   
 
   // -- legend --
+  push();
   const legendX = graphX + 10;
   let legendY = graphY + 10;
   const spacing = width/75;
@@ -388,12 +412,12 @@ function drawLineGraph(graph) {
       text(item.label, legendX + width/50, legendY);
       legendY += spacing;
     }
-  
+    pop();
 
-  strokeWeight(1);
 }
 
 function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, valueTransform = null) {
+  push();
   noFill();
   strokeWeight(2);
   beginShape();
@@ -408,6 +432,7 @@ function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, m
     }
   }
   endShape();
+  pop();
 }
 
 //-------------------------
@@ -550,22 +575,27 @@ function clickables(){
   clogLowerBtn.mousePressed(() => {
     clogLower = !clogLower;
     if(clogLower){clogLowerBtn.style('background-color', 'green');}
-    else{clogLowerBtn.style('background-color', '#0077cc');}
+    else{clogLowerBtn.style('background-color', 'gray');}
+  });
+  clogUpperBtn.mousePressed(() => {
+    clogUpper = !clogUpper;
+    if(clogUpper){clogUpperBtn.style('background-color', 'green');}
+    else{clogUpperBtn.style('background-color', 'gray');}
   });
 
   P_enableBtn.mousePressed(() => {
     P_enable = !P_enable;
-    if(!P_enable){P_enableBtn.style('background-color', 'red');}
+    if(!P_enable){P_enableBtn.style('background-color', 'gray');}
     else{P_enableBtn.style('background-color', 'green');}
   });
   I_enableBtn.mousePressed(() => {
     I_enable = !I_enable;
-    if(!I_enable){I_enableBtn.style('background-color', 'red');}
+    if(!I_enable){I_enableBtn.style('background-color', 'gray');}
     else{I_enableBtn.style('background-color', 'green');}
   });
   D_enableBtn.mousePressed(() => {
     D_enable = !D_enable;
-    if(!D_enable){D_enableBtn.style('background-color', 'red');}
+    if(!D_enable){D_enableBtn.style('background-color', 'gray');}
     else{D_enableBtn.style('background-color', 'green');}
   });
   
@@ -574,7 +604,7 @@ function clickables(){
     controlLower = false;
 
     controlUpperBtn.style('background-color', 'green');
-    controlLowerBtn.style('background-color', 'red');
+    controlLowerBtn.style('background-color', 'gray');
 
   });
 
@@ -583,7 +613,7 @@ function clickables(){
     controlUpper = false;
 
     controlLowerBtn.style('background-color', 'green');
-    controlUpperBtn.style('background-color', 'red');
+    controlUpperBtn.style('background-color', 'gray');
 
   });
   drainBtn.mousePressed(() => {
@@ -602,14 +632,14 @@ function clickables(){
       previousError = 0;
       controlBtn.style('background-color', 'green');
     } else {
-      controlBtn.style('background-color', 'red');
+      controlBtn.style('background-color', 'gray');
     }
   });
   pauseBtn.mousePressed(() => {
     pauseSim = !pauseSim;
     leaking = false;
-    if(pauseSim){pauseBtn.style('background-color', 'orange');}
-    else{pauseBtn.style('background-color', '#0077cc');}
+    if(pauseSim){pauseBtn.style('background-color', 'green');}
+    else{pauseBtn.style('background-color', 'gray');}
   });
 }
 
@@ -644,7 +674,7 @@ function getInflow(inflow_rate_max, t, dt) {
         previousTi = Ti;
       }
       integral += e * dt;
-      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0;
+      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0; // If Ti == 0, I_part = 0
     } else { I_part = 0;}
 
     // -- D Part --
@@ -663,4 +693,117 @@ function getInflow(inflow_rate_max, t, dt) {
 
     return u * inflow_rate_max;
   }
+}
+
+// Function that draws everything in regards to the PID arrow schematic
+function drawControlImage() {
+  const canvasRect = canvas.elt.getBoundingClientRect();
+
+  let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();
+  let pBtn = select('#P-control').elt.getBoundingClientRect();
+  let iBtn = select('#I-control').elt.getBoundingClientRect();
+  let dBtn = select('#D-control').elt.getBoundingClientRect();
+
+  let startX = setpointSliderBox.right;
+  let startY =  y_controls + controlSize / 10 + tankSize/2;
+
+drawPIDLines(
+  startX,
+  startY,
+  {
+    x: pBtn.left - canvasRect.left,
+    y: pBtn.top + pBtn.height / 2 - canvasRect.top,
+    x_right: pBtn.right - canvasRect.left
+  },
+  {
+    x: iBtn.left - canvasRect.left,
+    y: iBtn.top + iBtn.height / 2 - canvasRect.top,
+    x_right: iBtn.right - canvasRect.left
+  },
+  {
+    x: dBtn.left - canvasRect.left,
+    y: dBtn.top + dBtn.height / 2 - canvasRect.top,
+    x_right: dBtn.right - canvasRect.left
+  }
+);
+
+}
+
+// Drawing of each line for drawControlImage
+function drawPIDLines(startX, startY, pPos, iPos, dPos) {
+
+  push(); //Push/pop to save/restore default draw settings
+
+  stroke(0);
+  strokeWeight(2);
+
+  //Commenting this so it makes sense.
+  //This is the drawings from inflow rate (um) slider box, into the PID buttons. 
+  // Please note, drawArrowhead(X,Y, angle) prints an arrowhead at the end of the line. This is sometimes used.
+
+  //First line from inflow box -> branch spot
+  const splitX = pPos.x/1.07;
+  line(startX, startY, splitX, startY);
+
+  //This draws a veritcal line from yTop to ybottom where the first split occurs
+  const yTop = pPos.y;
+  const yBottom = dPos.y;
+  line(splitX, yTop, splitX, yBottom);
+
+  // Branch to P
+  line(splitX, pPos.y, pPos.x, pPos.y);
+  drawArrowhead(pPos.x, pPos.y, 0); // horizontal
+
+  // Branch to I
+  line(splitX, iPos.y, iPos.x, iPos.y);
+  drawArrowhead(iPos.x, iPos.y, 0);
+
+  // Branch to D
+  line(splitX, dPos.y, dPos.x, dPos.y);
+  drawArrowhead(dPos.x, dPos.y, 0);
+
+  // From the buttons to merging point
+  const mergingX = pPos.x +width * 0.05;
+  line(pPos.x_right, pPos.y, mergingX, pPos.y);
+  line(iPos.x_right, iPos.y, mergingX, iPos.y);
+  line(dPos.x_right, dPos.y, mergingX, dPos.y);
+
+  // Vertical line merge point
+  line(mergingX, yTop, mergingX, yBottom);
+
+
+  drawSumBlock(pPos.x/1.17, iPos.y, 15);
+  pop();
+}
+
+
+// Draws arrowhead end of line
+function drawArrowhead(x, y, angle) {
+  push();
+  translate(x, y);
+  rotate(angle);
+  fill(0);
+  noStroke();
+  triangle(0, 0, -10, 5, -10, -5);
+  pop();
+}
+
+// Draws Sum block circle
+function drawSumBlock(x, y, radius = 20) {
+
+  push(); // Saves previous style settings
+  // Drawing circle
+  stroke(0);
+  strokeWeight(2);
+  fill(255);
+  ellipse(x, y, radius * 2, radius * 2);
+
+  // Drawing Sigma (Sum letter)
+  noStroke();
+  fill(0);
+  textAlign(CENTER, CENTER);
+  textSize(radius * 1.2); 
+  text('Σ', x, y); 
+  pop(); // Restoring to previous style
+  fill(0);
 }

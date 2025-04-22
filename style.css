@@ -106,8 +106,8 @@ button:hover {
 .slider-title {
   font-weight: bold;
   align-items: center;
-  font-size: 16px;
-  margin-bottom: 0px;
+  font-size: 12px;
+  margin-bottom: 10px;
 }
 .PID-parameters {
   font-weight: bold;
