@@ -11,6 +11,9 @@ let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
 let tankSize;
+let connectorWidth;
+let upperWaterLevel;
+let lowerWaterLevel;
 
 // Position globals
 let canvas;
@@ -20,6 +23,9 @@ let controlSize;
 let sliderTop;
 let slidertop;
 let padding = 20;
+let x_upperTank;
+let y_upperTank;
+let tankGap;
 
 
 // PID control globals
@@ -43,7 +49,7 @@ let D_part = 0;
 let u = 0;
 
 // Graph globals
-let graphDuration = 60;
+let graphDuration = 50;
 let simTime = 0;    
 let lastFrameTime = 0; 
 let upperLevelHistory = [];
@@ -53,6 +59,8 @@ let P_history = [];
 let I_history = [];
 let D_history = [];
 let U_history = [];
+
+const pi = 3.1415;
 
 
 function setup() {
@@ -64,6 +72,7 @@ function setup() {
 
   clickables();
   
+  
   fillBtn.style('background', 'green');
   controlBtn.style('background', 'gray');
   controlLowerBtn.style('background', 'gray');
@@ -74,7 +83,8 @@ function setup() {
   P_enableBtn.style('background-color', 'green');
   I_enableBtn.style('background-color', 'green');
   D_enableBtn.style('background-color', 'green');
-  
+
+  resizeControls();
 }
 function draw() {
 
@@ -86,41 +96,34 @@ function draw() {
 
   let currentTime = millis() / 1000; // (milli)seconds since program started
   let deltaTime = currentTime - lastFrameTime; // time since last frame
+  deltaTime = min(deltaTime, 0.1); // Cap to 100 ms
   lastFrameTime = currentTime;
 
   if (!pauseSim) {
     runSimulationStep(deltaTime);  // run simulation using real dt
+  
   }
   
 
-  // Drawing graphs
-  drawLineGraph(1);
-  drawLineGraph(2);
+  // Update slider and controls positions
+  let lastResizeUpdate = 0;
+  if (currentTime - lastResizeUpdate > 0.2) { // 0.1 seconds = 100 ms
+    resizeControls();
+    drawLineGraph(1);
+    drawLineGraph(2);
+    lastResizeUpdate = currentTime;
+  }
+  sliderTop.value(upperWaterPercent * tankSize);
+  sliderBot.value(lowerWaterPercent * tankSize);
 
- // Tank sizes
-  tankSize = min(width, height) * 0.25;
-  let x_upperTank = (width * 0.38);
-  let y_upperTank = height * 0.15;
-  let tankGap = height * 0.05;
-  let connectorWidth = tankSize * 0.05;
 
-  x_controls = width*0.01;
-  y_controls = height*0.1;
-  controlSize = min(width,height) * 0.5;
-
-  let upperWaterLevel = upperWaterPercent * tankSize;
-  let lowerWaterLevel = lowerWaterPercent * tankSize;
-
-  // Draw tanks+connector
+  // Draw tanks
   fill(255); stroke(0);
   rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap, tankSize/2, tankSize);
-  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
-  // Update slider and controls positions
-  resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
-  sliderTop.value(upperWaterPercent * tankSize);
-  sliderBot.value(lowerWaterPercent * tankSize);
+  // draw connector
+  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
   // Draw water and tanks
   fill(0, 0, 255); noStroke();
@@ -131,14 +134,9 @@ function draw() {
   }
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
 
-    // Update controls
-    resizeControls(x_upperTank, y_upperTank, tankSize, tankGap);
-    sliderTop.value(upperWaterPercent * tankSize);
-    sliderBot.value(lowerWaterPercent * tankSize);
-
   // Display u(t)
   push();
-  let uText = `u(t): ${nf(u, 1, 2)}`;
+  let uText = `dt: ${nf(deltaTime, 1, 2)}`;
   textAlign(RIGHT, BOTTOM);
   fill(0);
   textSize(40);
@@ -155,7 +153,7 @@ function runSimulationStep(dt) {
 
   // --- Water logic ---
   let inflow_rate_max = 2.1 * Math.pow(10, -5);
-  let inflow_rate = getInflow(inflow_rate_max, simTime, dt);
+  let inflow_rate = updateControl(inflow_rate_max, simTime, dt);
   let A = 4.9 * Math.pow(10, -4);
 
   let h1 = upperWaterPercent * 0.16;
@@ -195,6 +193,8 @@ function runSimulationStep(dt) {
 
   // --- History trimming ---
   let minTime = simTime - graphDuration;
+
+  // Keep all points that comes after minTime, trim the rest.
   while (
     upperLevelHistory.length > 0 &&
     upperLevelHistory[0].t < minTime
@@ -210,21 +210,36 @@ function runSimulationStep(dt) {
 }
 
 
-function resizeControls(x, y, size, gap) {
+function resizeControls() {
+
+  x_upperTank  = width * 0.45;
+  y_upperTank = height * 0.15;
+  tankSize = min(width, height) * 0.25;
+  tankGap = height * 0.05;
+  
+  x_controls = width*0.01;
+  y_controls = height*0.1;
+  controlSize = min(width,height) * 0.5;
+
+  connectorWidth = tankSize * 0.05;
+  upperWaterLevel = upperWaterPercent * tankSize;
+  lowerWaterLevel = lowerWaterPercent * tankSize;
+
+  const canvasRect = canvas.elt.getBoundingClientRect();
   let pointerOffset = 18;
-  let sliderX = x + padding + size/2;
-  let sliderY = y + padding + size/2 -3;
+  let sliderX = x_upperTank + padding + tankSize/2;
+  let sliderY = y_upperTank + padding + tankSize/2 -3;
   let botSliderX = sliderX;
-  let botSliderY = sliderY + size + gap;
+  let botSliderY = sliderY + tankSize + tankGap;
 
   sliderTop.position(sliderX, sliderY);
-  sliderTop.style('width', (size + pointerOffset) + 'px');
-  sliderTop.attribute('max', size);
+  sliderTop.style('width', (tankSize + pointerOffset) + 'px');
+  sliderTop.attribute('max', tankSize);
   sliderTop.attribute('min', 0);
 
   sliderBot.position(botSliderX, botSliderY);
-  sliderBot.style('width', (size + pointerOffset) + 'px');
-  sliderBot.attribute('max', size);
+  sliderBot.style('width', (tankSize + pointerOffset) + 'px');
+  sliderBot.attribute('max', tankSize);
   sliderBot.attribute('min', 0);
 
 
@@ -235,35 +250,39 @@ function resizeControls(x, y, size, gap) {
   let iButton = select('#I-control');
   let dButton = select('#D-control');
   let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
-  let scaleFactor = size / 200;
+  let scaleFactor = tankSize / 200;
   let x_controlSlider = x_controls + controlSize/20;
   let y_inflowSlider =  y_controls + controlSize / 10;
 
   
-  let setpointX = inflowbox.right + size/50;
+  let setpointX = inflowbox.right + tankSize/50;
   setpointBox.position(setpointX, y_inflowSlider);
   setpointBox.style('transform', `scale(${scaleFactor})`);
   inflowBox.position(x_controlSlider, y_inflowSlider);
   inflowBox.style('transform', `scale(${scaleFactor})`);
-  PIDBox.position(x_controlSlider, y_inflowSlider + 1.3*size);
+  PIDBox.position(x_controlSlider, y_inflowSlider + 1.4*tankSize);
   PIDBox.style('transform', `scale(${scaleFactor})`);
-  
-  let x_PIDbuttons = x_controlSlider + 2*size
 
-  pButton.position(x_PIDbuttons, y_inflowSlider);
+  let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();  
+  let x_PIDbuttons = x_controlSlider + 2*tankSize;
+  let y_PIDbuttons = setpointSliderBox.top;
+  let PID_marigin = tankSize/2;
+  
+
+
+  pButton.position(x_PIDbuttons, y_PIDbuttons - PID_marigin);
   pButton.style('transform', `scale(${scaleFactor})`);
-  iButton.position(x_PIDbuttons, y_inflowSlider + size/2);
+  iButton.position(x_PIDbuttons, y_PIDbuttons);
   iButton.style('transform', `scale(${scaleFactor})`);
-  dButton.position(x_PIDbuttons, y_inflowSlider + size);
+  dButton.position(x_PIDbuttons, y_PIDbuttons + PID_marigin);
   dButton.style('transform', `scale(${scaleFactor})`);
 
-  let controlsX = x_controlSlider;
-  let controlsY = botSliderY + size;
+  // Dynamic positioning
+  let controlsX = 20; // 20 pixels from left side
+  let controlsY = height - buttons.size().height - 20; // 20 pixels above bottom of canvas
   // Delete/comment these if you want to change position of the buttons individually. Otherwise it wont position as wanted.
   buttons.position(controlsX, controlsY);
-  buttons2.position(controlsX, controlsY+50);
-  //buttons3.position(controlsX, controlsY+100); // Commented to place P I D buttons seperately.
-
+  buttons2.position(controlsX, controlsY + buttons.size().height + 10); // 10px gap between rows
 
   fillBtn.hide();
   drainBtn.hide();
@@ -276,6 +295,7 @@ function windowResized() {
   const { canvasWidth, canvasHeight } = getCanvasSize();
   resizeCanvas(canvasWidth, canvasHeight);
   
+  resizeControls();
 }
 
 function getCanvasSize() {
@@ -295,7 +315,7 @@ function getCanvasSize() {
 function drawLineGraph(graph) {
   let graphX = 0;
   let graphY = 0;
-  const graphWidth = width * 0.4;
+  const graphWidth = width * 0.36;
   const graphHeight = height * 0.4;
 
   if (graph == 1) {
@@ -317,63 +337,72 @@ function drawLineGraph(graph) {
   rect(graphX, graphY, graphWidth, graphHeight);
 
   // -- Y axis -- 
+  push();
   let yMin = (graph === 2) ? -1 : 0; // If true = -1,  if false = 0
   let yMax = (graph === 2) ? 1 : 100;
-
-  stroke(220);
-  strokeWeight(1); 
+  
+  strokeWeight(2); 
 
   const yStep = (graph === 2) ? 0.2 : 10;
   for (let yVal = yMin; yVal <= yMax + 0.001; yVal += yStep) {
     let y = map(yVal, yMin, yMax, graphY + graphHeight, graphY);
     line(graphX, y, graphX + graphWidth, y);
-
+    textSize(20);
     noStroke();
-    fill(80);
+    fill(0);
     textAlign(RIGHT, CENTER);
     if (graph === 1) {
-      text(`${nf(yVal, 1, 0)}%`, graphX - 5, y);
+      text(`${nf(yVal, 1, 0)}%`, graphX - 10, y);
     } else {
-      text(`${nf(yVal, 1, 1)}`, graphX - 5, y);
+      text(`${nf(yVal, 1, 1)}`, graphX - 10, y);
     }
-    stroke(220);
+    stroke(150);
   }
+  pop();
 
+  
   // -- X-axis --
+  push();
   const xStep = 1;
-  stroke(220);
+  stroke(0);
   for (let sec = Math.ceil(minTime / xStep) * xStep; sec <= maxTime; sec += xStep) {
     let x = map(sec, minTime, maxTime, graphX, graphX + graphWidth);
     line(x, graphY, x, graphY + graphHeight);
     noStroke();
-    fill(80);
+    fill(0);
+    textSize(20);
     textAlign(CENTER, TOP);
     if (sec % 5 == 0) {
-      text(`${nf(sec, 2, 1)}s`, x, graphY + graphHeight + 5);
+      text(`${nf(sec, 2, 0)}`, x, graphY + graphHeight + 10);
     }
-    stroke(220);
+    stroke(150);
   }
+  pop();
 
   // -- Tick marks --
-  stroke(100);
-  strokeWeight(1);
+  push();
+  stroke(0);
+  strokeWeight(1.5);
   for (let sec = Math.ceil(minTime); sec <= maxTime; sec++) {
     let x = map(sec, minTime, maxTime, graphX, graphX + graphWidth);
+    if(sec % 5 == 0) {
     line(x, graphY + graphHeight - 3, x, graphY + graphHeight + 6); 
+    }
   }
+  pop();
 
   // -- Data lines -- 
   if (graph === 2) {
-    drawHistoryLine(P_history, 'red', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
-    drawHistoryLine(I_history, 'green', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
-    drawHistoryLine(D_history, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
-    drawHistoryLine(U_history, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v / 100);
+      drawHistoryLine(P_history, 'red', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v/100);
+      drawHistoryLine(I_history, 'green', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v/100);
+      drawHistoryLine(D_history, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v/100);
+      drawHistoryLine(U_history, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v/100);
   }
 
   if (graph === 1) {
     drawHistoryLine(upperLevelHistory, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
     drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
-    drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax)
+    drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v);
   }
 
   
@@ -417,19 +446,25 @@ function drawLineGraph(graph) {
 }
 
 function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, valueTransform = null) {
+  if (data.length < 2) return;
+
+  let skip = max(1, floor(data.length / graphWidth));
+
   push();
   noFill();
+  stroke(color);
   strokeWeight(2);
   beginShape();
-  for (let d of data) {
-    if (d.t >= minTime && d.t <= maxTime) {
-      let rawVal = valueTransform ? valueTransform(d.value) : d.value;
-      let clamped = constrain(rawVal, yMin, yMax);
-      let x = map(d.t, minTime, maxTime, graphX, graphX + graphWidth);
-      let y = map(clamped, yMin, yMax, graphY + graphHeight, graphY);
-      stroke((rawVal !== clamped) ? 'red' : color);
-      vertex(x, y);
-    }
+
+  for (let i = 0; i < data.length; i += skip) {
+    let d = data[i];
+    let x = map(d.t, minTime, maxTime, graphX, graphX + graphWidth);
+
+    let v = valueTransform ? valueTransform(d.value) : d.value;
+    v = constrain(v, yMin, yMax);  
+    let y = map(v, yMin, yMax, graphY + graphHeight, graphY);
+
+    vertex(x, y);
   }
   endShape();
   pop();
@@ -644,7 +679,7 @@ function clickables(){
 }
 
 
-function getInflow(inflow_rate_max, t, dt) {
+function updateControl(inflow_rate_max, t, dt) {
   if (!control) {
     return (inflowSlider.value() / 100) * inflow_rate_max;
   } else {
@@ -666,23 +701,30 @@ function getInflow(inflow_rate_max, t, dt) {
       P_part = Kp * e;
     } else{P_part = 0;}
  
-
     // --- I Part ---
-    if(I_enable){
+    if (I_enable) {
       if (Ti !== previousTi) {
         integral = 0;
         previousTi = Ti;
       }
-      integral += e * dt;
-      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0; // If Ti == 0, I_part = 0
-    } else { I_part = 0;}
 
+      // Anti-windup
+      if (!((u >= 1 && e > 0) || (u <= 0 && e < 0))) {
+        integral += e * dt;
+      }
+
+      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0; // If Ti == 0, I_part = 0
+    } else {
+      I_part = 0;
+    }
     // -- D Part --
+    const alpha = 0.01;
     if(D_enable){
+
       let dy = (y - previousY) / dt;
-      let derivative = -dy;
-      let filteredD = 0.9 * previousDerivative + 0.1 * derivative;
+      let filteredD = (1 - alpha) * previousDerivative + alpha * (-dy);
       D_part = (Td > 0) ? Kp * Td * filteredD : 0;
+
       previousY = y;
       previousDerivative = filteredD;
     } else{ D_part = 0; }
@@ -705,7 +747,7 @@ function drawControlImage() {
   let dBtn = select('#D-control').elt.getBoundingClientRect();
 
   let startX = setpointSliderBox.right;
-  let startY =  y_controls + controlSize / 10 + tankSize/2;
+  let startY =  setpointSliderBox.top;
 
 drawPIDLines(
   startX,
@@ -713,17 +755,23 @@ drawPIDLines(
   {
     x: pBtn.left - canvasRect.left,
     y: pBtn.top + pBtn.height / 2 - canvasRect.top,
-    x_right: pBtn.right - canvasRect.left
+    x_right: pBtn.right - canvasRect.left,
+    height: pBtn.height,
+    width: pBtn.width
   },
   {
     x: iBtn.left - canvasRect.left,
     y: iBtn.top + iBtn.height / 2 - canvasRect.top,
-    x_right: iBtn.right - canvasRect.left
+    x_right: iBtn.right - canvasRect.left,
+    height: iBtn.height,
+    width: iBtn.width
   },
   {
     x: dBtn.left - canvasRect.left,
     y: dBtn.top + dBtn.height / 2 - canvasRect.top,
-    x_right: dBtn.right - canvasRect.left
+    x_right: dBtn.right - canvasRect.left,
+    height: dBtn.height,
+    width: dBtn.width
   }
 );
 
@@ -741,9 +789,15 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   //This is the drawings from inflow rate (um) slider box, into the PID buttons. 
   // Please note, drawArrowhead(X,Y, angle) prints an arrowhead at the end of the line. This is sometimes used.
 
+  // values for sum blocks
+  const x_sumRight = pPos.x/0.80;
+  const x_sumLeft = pPos.x/1.17;
+  const y_sum= iPos.y;
+  const sumSize = 15;
+
   //First line from inflow box -> branch spot
   const splitX = pPos.x/1.07;
-  line(startX, startY, splitX, startY);
+  line(startX, startY, splitX, iPos.y);
 
   //This draws a veritcal line from yTop to ybottom where the first split occurs
   const yTop = pPos.y;
@@ -763,21 +817,64 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   drawArrowhead(dPos.x, dPos.y, 0);
 
   // From the buttons to merging point
-  const mergingX = pPos.x +width * 0.05;
+  const mergingX = pPos.x + width * 0.05; 
+  const x_uBox = mergingX + width * 0.05;   
   line(pPos.x_right, pPos.y, mergingX, pPos.y);
   line(iPos.x_right, iPos.y, mergingX, iPos.y);
   line(dPos.x_right, dPos.y, mergingX, dPos.y);
 
-  // Vertical line merge point
+  // Vertical line by merge point
   line(mergingX, yTop, mergingX, yBottom);
 
+  // Line to uBox, with arrow
+  const y_uBox = iPos.y;
+  line(mergingX, iPos.y, x_uBox, iPos.y);
+  drawArrowhead(x_uBox, iPos.y, 0);
+  drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u);
 
-  drawSumBlock(pPos.x/1.17, iPos.y, 15);
+  // Veritcal line from left sum block
+  const y_output = dPos.y + tankSize/3;
+  const x_outputBox = x_uBox; 
+  line(x_sumLeft, y_sum, x_sumLeft, y_output);
+
+  // Horisontal line across output box and inverter.
+  line(x_sumLeft, y_output, x_outputBox, y_output);
+  drawArrowhead(iPos.x + iPos.width*2, y_output, pi);
+
+  //Inverter box
+  drawBox(iPos.x, y_output, iPos.height, iPos.width, -1);
+
+
+  if(controlLower){
+    drawBox(x_outputBox, y_output, iPos.height, iPos.width, lowerWaterPercent);
+    drawBox(x_outputBox, y_output-iPos.height, iPos.height, iPos.width, setpointSlider.value()/100); // This shows another box with setpoint (r) value, removed (redundant?)
+  }
+  else{
+  drawBox(x_outputBox, y_output, iPos.height, iPos.width, upperWaterPercent);
+  } 
+  push();
+  let textMarigin = iPos.height/3;
+  fill(0, 0, 0);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(iPos.height * 0.5);
+  let rText = 'r';
+  text(rText, x_uBox-textMarigin, iPos.y-textMarigin);
+  let yText = 'y';
+  text(yText, x_outputBox-textMarigin, y_output-textMarigin);
+  pop();
+
+// Arrowheads into left sumblock
+  drawArrowhead(x_sumLeft-sumSize, y_sum, 0);
+  drawArrowhead(x_sumLeft, y_sum+sumSize, 3*pi / 2);
+  
+  drawSumBlock(x_sumLeft, y_sum, sumSize);
+  drawSumBlock(x_sumRight, y_sum, sumSize);
   pop();
 }
 
 
-// Draws arrowhead end of line
+// Draws arrowhead end of line (Angle in radians. pi = 3.1415)
 function drawArrowhead(x, y, angle) {
   push();
   translate(x, y);
@@ -806,4 +903,24 @@ function drawSumBlock(x, y, radius = 20) {
   text('Σ', x, y); 
   pop(); // Restoring to previous style
   fill(0);
+}
+
+function drawBox(x,y, boxHeight, boxWidth, value){
+
+  boxWidth = boxWidth / 0.5;
+  y = y-boxHeight/2;
+  push();
+  stroke(0);
+  fill(255);
+  rect(x, y, boxWidth, boxHeight, 3);
+
+  let uText = `${nf(value, 1, 2)}`;
+  if(value == -1) {uText = `${nf(value, 1, 0)}`}
+
+  fill(0, 0, 200);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(boxHeight * 0.5);
+  text(uText, x + boxWidth/2, y + boxHeight/2);
+  pop();
 }
