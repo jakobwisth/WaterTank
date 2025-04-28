@@ -14,6 +14,8 @@ let tankSize;
 let connectorWidth;
 let upperWaterLevel;
 let lowerWaterLevel;
+let accumulatedTime = 0;  // New global variable
+const fixedTimeStep = 0.03;  // 150 ms timestep
 
 // Position globals
 let canvas;
@@ -94,14 +96,17 @@ function draw() {
   text(`Canvas: ${width} x ${height}`, 10, 10);
   text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
 
-  let currentTime = millis() / 1000; // (milli)seconds since program started
-  let deltaTime = currentTime - lastFrameTime; // time since last frame
-  deltaTime = min(deltaTime, 0.1); // Cap to 100 ms
+  let currentTime = millis() / 1000;
+  let deltaTime = currentTime - lastFrameTime;
   lastFrameTime = currentTime;
-
-  if (!pauseSim) {
-    runSimulationStep(deltaTime);  // run simulation using real dt
   
+  if (!pauseSim) {
+    accumulatedTime += deltaTime;
+  
+    while (accumulatedTime >= fixedTimeStep) {
+      runSimulationStep(fixedTimeStep);  // Always run with 0.15 s dt
+      accumulatedTime -= fixedTimeStep;
+    }
   }
   
 
@@ -136,7 +141,7 @@ function draw() {
 
   // Display u(t)
   push();
-  let uText = `dt: ${nf(deltaTime, 1, 2)}`;
+  let uText = `dt: ${nf(fixedTimeStep, 1, 2)}`;
   textAlign(RIGHT, BOTTOM);
   fill(0);
   textSize(40);
