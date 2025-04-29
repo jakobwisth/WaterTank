@@ -10,12 +10,12 @@ let speedup = 1;
 let upperWaterPercent = 0.0;
 let lowerWaterPercent = 0.0;
 let droplets = [];
-let tankSize;
+let tankSize = 500;
 let connectorWidth;
 let upperWaterLevel;
 let lowerWaterLevel;
 let accumulatedTime = 0;  // New global variable
-const fixedTimeStep = 0.03;  // 150 ms timestep
+const fixedTimeStep = 0.03; 
 
 // Position globals
 let canvas;
@@ -28,6 +28,9 @@ let padding = 20;
 let x_upperTank;
 let y_upperTank;
 let tankGap;
+let speedupSlider;
+let pageBecameVisible = false;
+let scaleFactor = 1;
 
 
 // PID control globals
@@ -86,42 +89,42 @@ function setup() {
   I_enableBtn.style('background-color', 'green');
   D_enableBtn.style('background-color', 'green');
 
-  resizeControls();
+
 }
+
 function draw() {
 
   background(220);
 
+  resizeControls();
+  drawLineGraph(1);
+  drawLineGraph(2);
+
+  push();
   textAlign(LEFT, TOP);
   text(`Canvas: ${width} x ${height}`, 10, 10);
   text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
+  pop();
 
   let currentTime = millis() / 1000;
   let deltaTime = currentTime - lastFrameTime;
   lastFrameTime = currentTime;
   
   if (!pauseSim) {
-    accumulatedTime += deltaTime;
+    accumulatedTime += deltaTime*speedup;
   
     while (accumulatedTime >= fixedTimeStep) {
-      runSimulationStep(fixedTimeStep);  // Always run with 0.15 s dt
+      runSimulationStep(fixedTimeStep);  // Run simulations until dt is caught up
       accumulatedTime -= fixedTimeStep;
     }
   }
-  
 
-  // Update slider and controls positions
-  let lastResizeUpdate = 0;
-  if (currentTime - lastResizeUpdate > 0.2) { // 0.1 seconds = 100 ms
-    resizeControls();
-    drawLineGraph(1);
-    drawLineGraph(2);
-    lastResizeUpdate = currentTime;
-  }
+  
+  
   sliderTop.value(upperWaterPercent * tankSize);
   sliderBot.value(lowerWaterPercent * tankSize);
 
-
+push();
   // Draw tanks
   fill(255); stroke(0);
   rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
@@ -130,7 +133,7 @@ function draw() {
   // draw connector
   rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
 
-  // Draw water and tanks
+  // Draw water
   fill(0, 0, 255); noStroke();
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize - upperWaterLevel, tankSize/2, upperWaterLevel); // Tank 1 water
   if (upperWaterLevel > 0) {
@@ -138,7 +141,18 @@ function draw() {
     rect(x_upperTank + tankSize*3/4- connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
   }
   rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
+  pop();
 
+  // Drawing pump
+  x_pump = x_upperTank + tankSize/3;
+  y_pump = y_upperTank + tankSize/3.3;
+  scaleFactor = tankSize/200;
+  drawPump(x_pump, y_pump, 0, scaleFactor)
+
+  //Drawing lines with reservoir and showerhead
+  drawReservoirScaled();
+
+  
   // Display u(t)
   push();
   let uText = `dt: ${nf(fixedTimeStep, 1, 2)}`;
@@ -152,6 +166,60 @@ function draw() {
   drawControlImage();
 
 }
+
+//Drawing reservoir and showerhead, and lines between
+function drawReservoirScaled() {
+  const centerX = x_upperTank + tankSize * 3/4;  // x of center of lower tank
+  const baseY = y_upperTank + 2 * tankSize + tankGap + height *0.05; // Bottom Y of reservoir
+
+  push();
+  translate(centerX, baseY); // moves so origin (0,0) is at the bottom center of reservoir
+  scale(scaleFactor);   //scales
+
+  const tankWidth = tankSize / scaleFactor / 2;
+  const reservoirHeight = 30;
+  const reservoirWidthOffset = 20;
+
+  fill(0);
+  beginShape();
+  vertex(-tankWidth / 2, 0); // Bottom-left
+  vertex(tankWidth / 2, 0);  // Bottom-right
+  vertex(tankWidth / 2 + reservoirWidthOffset, -reservoirHeight); // Top-right
+  vertex(-tankWidth / 2 - reservoirWidthOffset, -reservoirHeight); // Top-left
+  endShape(CLOSE);
+
+  // horisontal line from reservoir to pump
+  strokeWeight(5 / scaleFactor);
+  const pipeY = -reservoirHeight + 2;
+
+  // Variables for drwaing
+  const pumpSize = 10*scaleFactor;
+  const pumpX = (x_pump - centerX) / scaleFactor;
+  const pumpY_bottom = (y_pump - baseY + pumpSize) / scaleFactor;
+  const pumpY_top = (y_pump - baseY - pumpSize) / scaleFactor;
+  const topLine_Y = pumpY_top - 110;
+  const showerLine_y = topLine_Y + 20;
+
+  // Line going from reservoir to showerhead
+
+  line(-tankWidth / 2 - reservoirWidthOffset + 10, pipeY, pumpX, pipeY); // First
+  line(pumpX, pipeY - 2, pumpX, pumpY_bottom); //veritcal into pump
+  line(pumpX, pumpY_top, pumpX, topLine_Y); // Pump to top
+  line(pumpX, topLine_Y, 0, topLine_Y);  //Horisontal top
+  line(0, topLine_Y, 0, showerLine_y); // top to showerhead
+
+
+  //Drawing showerhead
+  const headWidth = 20;
+  const headHeight = 15 ;
+  beginShape(); 
+  vertex(0, showerLine_y);                          
+  vertex(-headWidth / 2, showerLine_y + headHeight); 
+  vertex(headWidth / 2, showerLine_y + headHeight);  
+  endShape(CLOSE);
+  pop();
+
+  }
 
 function runSimulationStep(dt) {
   simTime += dt;
@@ -217,7 +285,7 @@ function runSimulationStep(dt) {
 
 function resizeControls() {
 
-  x_upperTank  = width * 0.45;
+  x_upperTank  = width * 0.43;
   y_upperTank = height * 0.15;
   tankSize = min(width, height) * 0.25;
   tankGap = height * 0.05;
@@ -249,15 +317,18 @@ function resizeControls() {
 
 
   let inflowBox = select('#inflow-slider-box');
+  let speedupBox = select('#speedup-slider-box');
   let setpointBox = select('#setpoint-slider-box');
   let PIDBox = select('#PID-variables-slider-box');
   let pButton = select('#P-control');
   let iButton = select('#I-control');
   let dButton = select('#D-control');
   let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
-  let scaleFactor = tankSize / 200;
+  scaleFactor = tankSize / 200;
   let x_controlSlider = x_controls + controlSize/20;
   let y_inflowSlider =  y_controls + controlSize / 10;
+  let x_speedup = x_controlSlider + tankSize*2.5;
+  let y_speedup = y_inflowSlider + 1.8*tankSize;
 
   
   let setpointX = inflowbox.right + tankSize/50;
@@ -267,6 +338,10 @@ function resizeControls() {
   inflowBox.style('transform', `scale(${scaleFactor})`);
   PIDBox.position(x_controlSlider, y_inflowSlider + 1.4*tankSize);
   PIDBox.style('transform', `scale(${scaleFactor})`);
+  speedupBox.position(x_speedup, y_speedup);
+  speedupBox.style('transform', `scale(${scaleFactor})`);
+  
+
 
   let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();  
   let x_PIDbuttons = x_controlSlider + 2*tankSize;
@@ -324,25 +399,24 @@ function drawLineGraph(graph) {
   const graphHeight = height * 0.4;
 
   if (graph == 1) {
-    graphX = width - graphWidth - padding;
-    graphY = padding;
+    graphX = width - graphWidth- padding*scaleFactor;
+    graphY = padding * scaleFactor;
   }
   if (graph == 2) {
-    graphX = width - graphWidth - padding;
+    graphX = width - graphWidth - padding*scaleFactor;
     graphY = height / 2;
   }
 
   const now = simTime;
   const minTime = Math.max(0, now - graphDuration);
   const maxTime = minTime + graphDuration;
-
+push();
   stroke(0);
   fill(255);
   strokeWeight(1);
   rect(graphX, graphY, graphWidth, graphHeight);
 
   // -- Y axis -- 
-  push();
   let yMin = (graph === 2) ? -1 : 0; // If true = -1,  if false = 0
   let yMax = (graph === 2) ? 1 : 100;
   
@@ -352,7 +426,7 @@ function drawLineGraph(graph) {
   for (let yVal = yMin; yVal <= yMax + 0.001; yVal += yStep) {
     let y = map(yVal, yMin, yMax, graphY + graphHeight, graphY);
     line(graphX, y, graphX + graphWidth, y);
-    textSize(20);
+    textSize(15*scaleFactor);
     noStroke();
     fill(0);
     textAlign(RIGHT, CENTER);
@@ -375,7 +449,7 @@ function drawLineGraph(graph) {
     line(x, graphY, x, graphY + graphHeight);
     noStroke();
     fill(0);
-    textSize(20);
+    textSize(15*scaleFactor);
     textAlign(CENTER, TOP);
     if (sec % 5 == 0) {
       text(`${nf(sec, 2, 0)}`, x, graphY + graphHeight + 10);
@@ -458,7 +532,7 @@ function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, m
   push();
   noFill();
   stroke(color);
-  strokeWeight(2);
+  strokeWeight(4);
   beginShape();
 
   for (let i = 0; i < data.length; i += skip) {
@@ -477,11 +551,6 @@ function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, m
 
 //-------------------------
 
-function resetButtonColors() { // delete ?
-  fillBtn.style('background-color', '#0077cc');
-  drainBtn.style('background-color', '#0077cc');
-  //controlBtn.style('background-color', '#0077cc');
-}
 
 function clickables(){
 
@@ -513,6 +582,7 @@ function clickables(){
   inflowValue = select('#inflow-value');
   setpointSlider = select('#setpoint-slider');
   setpointValue = select('#setpoint-value');
+  speedupSlider = select('#speedup-slider');
 
   KpSlider = select('#Kp-slider');
   KpValue = select('#Kp-value');
@@ -569,6 +639,9 @@ function clickables(){
     }
   });
 
+  speedupSlider.input(() => {
+    speedup = speedupSlider.value();
+  });
 
   inflowSlider.input(() => {
     let percent = inflowSlider.value() / 100;
@@ -837,6 +910,13 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   drawArrowhead(x_uBox, iPos.y, 0);
   drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u);
 
+  
+  // Line from uBox to pump
+  let pump_LEFT = x_pump-10 * scaleFactor;
+  line(x_uBox+iPos.width*2, y_uBox, pump_LEFT, y_uBox);
+  drawArrowhead(pump_LEFT, y_uBox);
+  
+
   // Veritcal line from left sum block
   const y_output = dPos.y + tankSize/3;
   const x_outputBox = x_uBox; 
@@ -887,6 +967,32 @@ function drawArrowhead(x, y, angle) {
   fill(0);
   noStroke();
   triangle(0, 0, -10, 5, -10, -5);
+  pop();
+}
+
+// Draws pump
+function drawPump(x, y, angle, size = 1) {
+  push();
+  translate(x, y);
+  rotate(angle);
+  scale(size);
+
+  // Circle around triangle
+  fill(255);
+  stroke(0);
+  strokeWeight(2);
+  ellipse(0, 0, 20, 20);  // Centered at 0,0. Diameter 20
+
+  // Triangle
+  noFill();
+  stroke(0);
+  strokeWeight(2);
+  triangle(
+    0, -8,    // Top point (a bit above center)
+    -8, 4,    // Bottom left
+    8, 4      // Bottom right
+  );
+
   pop();
 }
 
