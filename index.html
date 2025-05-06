@@ -14,8 +14,8 @@
     <div id="canvas-container"></div>
 
     <div id="inflow-slider-box">
-        <div class="slider-title">Inflow</div>
-        <div class="slider-title"> (um)</div>
+        <div class="slider-title">Manual</div>
+        <div class="slider-text"> (u)</div>
 
         <div class="slider-paired-row">
           
@@ -31,7 +31,7 @@
 
     <div id="setpoint-slider-box">
       <div class="slider-title">Setpoint</div>
-      <div class="slider-title"> (r)</div>
+      <div class="slider-text"> (r)</div>
       <div class="slider-paired-row">
         <input type="range" id="setpoint-slider" min="0" max="100" value="0" />
         <div class="slider-labels">
@@ -45,17 +45,17 @@
 
   <div id="speedup-slider-box">
     <div class="slider-title">Speed up</div>
-    <div class="slider-paired-row">
-      <input type="range" id="speedup-slider" min="0" max="4" value="1" />
+    <div class="slider-paired-column">
       <div class="slider-labels">
-        <div class="scale-label">4</div>
-        <div class="scale-label">3</div>
-        <div class="scale-label">2</div>
-        <div class="scale-label">1</div>
         <div class="scale-label">0.0</div>
+        <div class="scale-label">1</div>
+        <div class="scale-label">2</div>
+        <div class="scale-label">3</div>
+        <div class="scale-label">4</div>
       </div>
+      <input type="range" id="speedup-slider" min="0" max="4" value="1" />
     </div>
-</div>
+  </div>
 
 
   <div id="PID-variables-slider-box">
@@ -94,11 +94,20 @@
     <input type="range" id="top-slider"/>
     <input type="range" id="bot-slider"/>
     <!-- Grouped buttons-->
+
+    <div id="control-button-group">
+      <div class="control-title">Control Outputs</div>
+      <button id="control-btn" title="Enable or disable automatic control">Enable Control</button>
+      <hr class="divider" />
+      <div id="valve-controls">
+        <button id="control-upper-btn" title="Toggle control of the upper tank"> Control Upper</button>
+        <button id="control-lower-btn" title="Toggle control of the lower tank"> Control Lower</button>
+      </div>
+    </div>
+
     <div id="controls">
       <button id="fill-btn">Fill</button>
       <button id="drain-btn">Stop Fill</button>
-      <button id="pause-btn">Pause Simulation</button>
-      <button id="control-btn">Enable Control</button>
       <button id="clog-lower-btn">Clog lower</button>
       <button id="clog-upper-btn">Clog upper</button>
     </div>
@@ -106,10 +115,10 @@
       <button id="P-control">P</button>
       <button id="I-control">I</button>
       <button id="D-control">D</button>
+      <button id="pause-btn">Freeze Plots                 </button>
     </div>
     <div id="controls2">
-      <button id="control-upper-btn">Control upper</button>
-      <button id="control-lower-btn">Control Lower</button>
+
     </div>
 </body>
 </html>

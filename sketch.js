@@ -16,6 +16,14 @@ let upperWaterLevel;
 let lowerWaterLevel;
 let accumulatedTime = 0;  // New global variable
 const fixedTimeStep = 0.03; 
+let inflow_rate;
+let tooltipMap = {};
+let hoveringValve = false;
+let isUpperOverflowing = false;
+let isLowerOverflowing = false;
+let tabHidden = false;
+
+
 
 // Position globals
 let canvas;
@@ -31,7 +39,9 @@ let tankGap;
 let speedupSlider;
 let pageBecameVisible = false;
 let scaleFactor = 1;
-
+let graphX = 0;
+let graphY = 0;
+let showerLine_y;
 
 // PID control globals
 let control = false;
@@ -64,6 +74,12 @@ let P_history = [];
 let I_history = [];
 let D_history = [];
 let U_history = [];
+let graphWidth;
+let graphHeight;
+let graphGap;
+
+// buttons
+let pauseBtn;
 
 const pi = 3.1415;
 
@@ -75,21 +91,50 @@ function setup() {
   canvas.parent("canvas-container");
   lastFrameTime = millis() / 1000;
 
+  pauseWhenTabbedOut();
+  clearTooltips();
   clickables();
+  initiateButtons();
   
-  
-  fillBtn.style('background', 'green');
-  controlBtn.style('background', 'gray');
-  controlLowerBtn.style('background', 'gray');
-  clogLowerBtn.style('background', 'gray');
-  clogUpperBtn.style('background', 'gray');
-  pauseBtn.style('background', 'gray');
-  controlUpperBtn.style('background', 'green');
-  P_enableBtn.style('background-color', 'green');
-  I_enableBtn.style('background-color', 'green');
-  D_enableBtn.style('background-color', 'green');
+}
+function initiateButtons(){
+
+  //clogLowerBtn.style('background', 'gray');
+  //clogUpperBtn.style('background', 'gray');
+
+  clogLowerBtn.hide();
+  clogUpperBtn.hide();
+
+  controlUpperBtn.addClass('button-style');
+  controlLowerBtn.addClass('button-style');
+  pauseBtn.addClass('button-style');
+  P_enableBtn.addClass('button-style');
+  I_enableBtn.addClass('button-style');
+  D_enableBtn.addClass('button-style');
+  controlBtn.addClass('button-style');
 
 
+  pauseBtn.addClass('default-button');
+  controlUpperBtn.addClass('active-button');
+  controlLowerBtn.addClass('default-button');
+  P_enableBtn.addClass('active-button');
+  I_enableBtn.addClass('active-button');
+  D_enableBtn.addClass('active-button');
+  fillBtn.addClass('active-button');
+  controlBtn.addClass('default-button');
+}
+
+function pauseWhenTabbedOut(){
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      tabHidden = true;
+      noLoop();
+    } else {
+      tabHidden = false;
+      lastFrameTime = millis() / 1000;  // Reset time tracking
+      loop();
+    }
+  });
 }
 
 function draw() {
@@ -99,12 +144,16 @@ function draw() {
   resizeControls();
   drawLineGraph(1);
   drawLineGraph(2);
+  drawSimulation();
+  drawClogToggles();
+  drawControlImage();
+  drawDebug();
 
-  push();
-  textAlign(LEFT, TOP);
-  text(`Canvas: ${width} x ${height}`, 10, 10);
-  text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
-  pop();
+  updateSimulationTime();
+}
+
+function updateSimulationTime(){
+  if (tabHidden) return;
 
   let currentTime = millis() / 1000;
   let deltaTime = currentTime - lastFrameTime;
@@ -118,59 +167,12 @@ function draw() {
       accumulatedTime -= fixedTimeStep;
     }
   }
-
-  
-  
-  sliderTop.value(upperWaterPercent * tankSize);
-  sliderBot.value(lowerWaterPercent * tankSize);
-
-push();
-  // Draw tanks
-  fill(255); stroke(0);
-  rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
-  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap, tankSize/2, tankSize);
-
-  // draw connector
-  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
-
-  // Draw water
-  fill(0, 0, 255); noStroke();
-  rect(x_upperTank+tankSize/2, y_upperTank + tankSize - upperWaterLevel, tankSize/2, upperWaterLevel); // Tank 1 water
-  if (upperWaterLevel > 0) {
-    rect(x_upperTank + tankSize*3/4  - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap); // Connector water
-    rect(x_upperTank + tankSize*3/4- connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
-  }
-  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
-  pop();
-
-  // Drawing pump
-  x_pump = x_upperTank + tankSize/3;
-  y_pump = y_upperTank + tankSize/3.3;
-  scaleFactor = tankSize/200;
-  drawPump(x_pump, y_pump, 0, scaleFactor)
-
-  //Drawing lines with reservoir and showerhead
-  drawReservoirScaled();
-
-  
-  // Display u(t)
-  push();
-  let uText = `dt: ${nf(fixedTimeStep, 1, 2)}`;
-  textAlign(RIGHT, BOTTOM);
-  fill(0);
-  textSize(40);
-  text(uText, width - 10, height - 10);
-  pop();
-
-  //Draw PID button schematics
-  drawControlImage();
-
 }
 
 //Drawing reservoir and showerhead, and lines between
 function drawReservoirScaled() {
   const centerX = x_upperTank + tankSize * 3/4;  // x of center of lower tank
-  const baseY = y_upperTank + 2 * tankSize + tankGap + height *0.05; // Bottom Y of reservoir
+  const baseY = y_upperTank + 2 * tankSize + tankGap + height *0.12; // Bottom Y of reservoir
 
   push();
   translate(centerX, baseY); // moves so origin (0,0) is at the bottom center of reservoir
@@ -197,8 +199,8 @@ function drawReservoirScaled() {
   const pumpX = (x_pump - centerX) / scaleFactor;
   const pumpY_bottom = (y_pump - baseY + pumpSize) / scaleFactor;
   const pumpY_top = (y_pump - baseY - pumpSize) / scaleFactor;
-  const topLine_Y = pumpY_top - 110;
-  const showerLine_y = topLine_Y + 20;
+  const topLine_Y = pumpY_top - 80;
+  showerLine_y = topLine_Y+20;
 
   // Line going from reservoir to showerhead
 
@@ -226,7 +228,7 @@ function runSimulationStep(dt) {
 
   // --- Water logic ---
   let inflow_rate_max = 2.1 * Math.pow(10, -5);
-  let inflow_rate = updateControl(inflow_rate_max, simTime, dt);
+  inflow_rate = updateControl(inflow_rate_max, simTime, dt);
   let A = 4.9 * Math.pow(10, -4);
 
   let h1 = upperWaterPercent * 0.16;
@@ -267,18 +269,16 @@ function runSimulationStep(dt) {
   // --- History trimming ---
   let minTime = simTime - graphDuration;
 
-  // Keep all points that comes after minTime, trim the rest.
-  while (
-    upperLevelHistory.length > 0 &&
-    upperLevelHistory[0].t < minTime
-  ) {
-    upperLevelHistory.shift();
-    lowerWaterHistory.shift();
-    P_history.shift();
-    I_history.shift();
-    D_history.shift();
-    U_history.shift();
-    referenceHistory.shift();
+  const cutoffIndex = upperLevelHistory.findIndex(d => d.t >= minTime);
+
+  if (cutoffIndex > 0) {
+    upperLevelHistory.splice(0, cutoffIndex);
+    lowerWaterHistory.splice(0, cutoffIndex);
+    P_history.splice(0, cutoffIndex);
+    I_history.splice(0, cutoffIndex);
+    D_history.splice(0, cutoffIndex);
+    U_history.splice(0, cutoffIndex);
+    referenceHistory.splice(0, cutoffIndex);
   }
 }
 
@@ -320,17 +320,24 @@ function resizeControls() {
   let speedupBox = select('#speedup-slider-box');
   let setpointBox = select('#setpoint-slider-box');
   let PIDBox = select('#PID-variables-slider-box');
+  let controlBox = select('#control-button-group');
   let pButton = select('#P-control');
   let iButton = select('#I-control');
   let dButton = select('#D-control');
   let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
+  let speedPosition = select('#setpoint-slider').elt.getBoundingClientRect();  
   scaleFactor = tankSize / 200;
   let x_controlSlider = x_controls + controlSize/20;
-  let y_inflowSlider =  y_controls + controlSize / 10;
-  let x_speedup = x_controlSlider + tankSize*2.5;
-  let y_speedup = y_inflowSlider + 1.8*tankSize;
+  let y_inflowSlider =  y_controls + controlSize / 40;
 
-  
+  if (control) {
+    inflowBox.addClass('slider-disabled');
+    setpointBox.removeClass('slider-disabled');
+  } else {
+    setpointBox.addClass('slider-disabled');
+    inflowBox.removeClass('slider-disabled');
+  }
+
   let setpointX = inflowbox.right + tankSize/50;
   setpointBox.position(setpointX, y_inflowSlider);
   setpointBox.style('transform', `scale(${scaleFactor})`);
@@ -338,17 +345,28 @@ function resizeControls() {
   inflowBox.style('transform', `scale(${scaleFactor})`);
   PIDBox.position(x_controlSlider, y_inflowSlider + 1.4*tankSize);
   PIDBox.style('transform', `scale(${scaleFactor})`);
-  speedupBox.position(x_speedup, y_speedup);
-  speedupBox.style('transform', `scale(${scaleFactor})`);
   
+  controlBox.position(x_controlSlider, y_inflowSlider+ 2.8*tankSize);
+  controlBox.style('transform', `scale(${scaleFactor*0.7})`);
+ 
+  //let pauseX = width - graphWidth;
+  //let pauseY = graphY;
+  let pauseX = width - graphWidth;
+  let pauseY = y_upperTank+tankSize+tankGap+tankSize/5;
+  let pauseHeight = pauseBtn.elt.offsetHeight;
+  let pauseWidth = pauseBtn.elt.offsetWidth;
+  pauseBtn.position(pauseX, pauseY);
+  pauseBtn.style('font-size', `${12 * scaleFactor}px`);
+  pauseBtn.style('padding', `${5 * scaleFactor}px ${15 * scaleFactor}px`);
 
+
+  speedupBox.style('transform', `scale(${scaleFactor*0.65})`);
+  speedupBox.position(pauseX+pauseWidth+padding*scaleFactor, pauseY-pauseHeight);
 
   let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();  
   let x_PIDbuttons = x_controlSlider + 2*tankSize;
   let y_PIDbuttons = setpointSliderBox.top;
   let PID_marigin = tankSize/2;
-  
-
 
   pButton.position(x_PIDbuttons, y_PIDbuttons - PID_marigin);
   pButton.style('transform', `scale(${scaleFactor})`);
@@ -357,12 +375,13 @@ function resizeControls() {
   dButton.position(x_PIDbuttons, y_PIDbuttons + PID_marigin);
   dButton.style('transform', `scale(${scaleFactor})`);
 
-  // Dynamic positioning
-  let controlsX = 20; // 20 pixels from left side
-  let controlsY = height - buttons.size().height - 20; // 20 pixels above bottom of canvas
+  // not needed anymore ?
+ // let controlsX = 20; // 20 pixels from left side
+ // let controlsY = height - buttons.size().height - 20; // 20 pixels above bottom of canvas
+
   // Delete/comment these if you want to change position of the buttons individually. Otherwise it wont position as wanted.
-  buttons.position(controlsX, controlsY);
-  buttons2.position(controlsX, controlsY + buttons.size().height + 10); // 10px gap between rows
+  //buttons.position(controlsX, controlsY);
+  //buttons2.position(controlsX, controlsY + buttons.size().height + 10); // 10px gap between rows
 
   fillBtn.hide();
   drainBtn.hide();
@@ -370,8 +389,15 @@ function resizeControls() {
 }
 
 
+function positionPauseButton() {
+
+  let pauseX = width - graphWidth;
+  let pauseY = graphY - graphGap / 2.5;
+  pauseBtn.position(pauseX, pauseY);
+}
 
 function windowResized() {
+  clearTooltips();
   const { canvasWidth, canvasHeight } = getCanvasSize();
   resizeCanvas(canvasWidth, canvasHeight);
   
@@ -393,10 +419,9 @@ function getCanvasSize() {
 }
 
 function drawLineGraph(graph) {
-  let graphX = 0;
-  let graphY = 0;
-  const graphWidth = width * 0.36;
-  const graphHeight = height * 0.4;
+  graphWidth = width * 0.36;
+  graphHeight = height * 0.35;
+  graphGap = height * 0.20;
 
   if (graph == 1) {
     graphX = width - graphWidth- padding*scaleFactor;
@@ -404,7 +429,7 @@ function drawLineGraph(graph) {
   }
   if (graph == 2) {
     graphX = width - graphWidth - padding*scaleFactor;
-    graphY = height / 2;
+    graphY = graphHeight + graphGap;
   }
 
   const now = simTime;
@@ -576,8 +601,6 @@ function clickables(){
   P_enableBtn = select('#P-control');
   I_enableBtn = select('#I-control');
   D_enableBtn = select('#D-control');
-  controlLowerBtn = select('#control-lower-btn');
-  controlLowerBtn = select('#control-lower-btn');
   inflowSlider = select('#inflow-slider');
   inflowValue = select('#inflow-value');
   setpointSlider = select('#setpoint-slider');
@@ -590,8 +613,8 @@ function clickables(){
   TiValue = select('#Ti-value');
   TdSlider = select('#Td-slider');
   TdValue = select('#Td-value');
+  
 
-    
   // How the clickables will function here
 
   inflowValue.changed(() => {
@@ -678,87 +701,100 @@ function clickables(){
     lowerWaterPercent = constrain(sliderBot.value() / tankSize, 0, 1);
   });
 
-  // alternative color: #22aa22
   fillBtn.mousePressed(() => {
     filling = true;
     resetButtonColors();
-    fillBtn.style('background-color', 'green');
+    fillBtn.addClass('active-button');
   });
 
   clogLowerBtn.mousePressed(() => {
     clogLower = !clogLower;
-    if(clogLower){clogLowerBtn.style('background-color', 'green');}
-    else{clogLowerBtn.style('background-color', 'gray');}
+    if(clogLower){clogLowerBtn.removeClass('default-button');clogLowerBtn.addClass('active-button');}
+    else{clogLowerBtn.removeClass('active-button');clogLowerBtn.addClass('default-button');}
   });
   clogUpperBtn.mousePressed(() => {
     clogUpper = !clogUpper;
-    if(clogUpper){clogUpperBtn.style('background-color', 'green');}
-    else{clogUpperBtn.style('background-color', 'gray');}
+    if(clogUpper){clogUpperBtn.removeClass('default-button');clogUpperBtn.addClass('active-button');}
+    else{clogUpperBtn.removeClass('active-button');clogUpperBtn.addClass('default-button');}
   });
 
   P_enableBtn.mousePressed(() => {
     P_enable = !P_enable;
-    if(!P_enable){P_enableBtn.style('background-color', 'gray');}
-    else{P_enableBtn.style('background-color', 'green');}
+    if(!P_enable){P_enableBtn.removeClass('active-button');P_enableBtn.addClass('default-button');}
+    else{P_enableBtn.removeClass('default-button');P_enableBtn.addClass('active-button');}
   });
   I_enableBtn.mousePressed(() => {
     I_enable = !I_enable;
-    if(!I_enable){I_enableBtn.style('background-color', 'gray');}
-    else{I_enableBtn.style('background-color', 'green');}
+    if(!I_enable){I_enableBtn.removeClass('active-button');I_enableBtn.addClass('default-button');}
+    else{I_enableBtn.removeClass('default-button');I_enableBtn.addClass('active-button');}
   });
   D_enableBtn.mousePressed(() => {
     D_enable = !D_enable;
-    if(!D_enable){D_enableBtn.style('background-color', 'gray');}
-    else{D_enableBtn.style('background-color', 'green');}
+    if(!D_enable){D_enableBtn.removeClass('active-button');D_enableBtn.addClass('default-button');}
+    else{D_enableBtn.removeClass('default-button');D_enableBtn.addClass('active-button');}
   });
   
   controlUpperBtn.mousePressed(() => {
     controlUpper = true;
     controlLower = false;
 
-    controlUpperBtn.style('background-color', 'green');
-    controlLowerBtn.style('background-color', 'gray');
+    controlLowerBtn.removeClass('active-button');
+    controlUpperBtn.removeClass('default-button');
+    controlUpperBtn.addClass('active-button');
+    controlLowerBtn.addClass('default-button');
 
   });
 
   controlLowerBtn.mousePressed(() => {
     controlLower = true;
     controlUpper = false;
-
-    controlLowerBtn.style('background-color', 'green');
-    controlUpperBtn.style('background-color', 'gray');
+    controlLowerBtn.removeClass('default-button');
+    controlUpperBtn.removeClass('active-button');
+    controlLowerBtn.addClass('active-button');
+    controlUpperBtn.addClass('default-button');
 
   });
   drainBtn.mousePressed(() => {
     filling = false;
     resetButtonColors(); ///// might wanna check this out again and delete this
-    drainBtn.style('background-color', 'green');
+    drainBtn.removeClass('default-button');
+    drainBtn.addClass('active-button');
     
   });
 
   controlBtn.mousePressed(() => {
-
+    
+    clearTooltips();
     control = !control;
-
+    resizeControls();
     if (control) {
       integral = 0;
       previousError = 0;
-      controlBtn.style('background-color', 'green');
+      controlBtn.removeClass('default-button');
+      controlBtn.addClass('active-button');
     } else {
-      controlBtn.style('background-color', 'gray');
+      controlBtn.removeClass('active-button');
+      controlBtn.addClass('default-button');
     }
   });
   pauseBtn.mousePressed(() => {
     pauseSim = !pauseSim;
     leaking = false;
-    if(pauseSim){pauseBtn.style('background-color', 'green');}
-    else{pauseBtn.style('background-color', 'gray');}
+  
+    if (pauseSim) {
+      pauseBtn.removeClass('default-button');
+      pauseBtn.addClass('active-button');
+    } else {
+      pauseBtn.removeClass('active-button');
+      pauseBtn.addClass('default-button');
+    }
   });
 }
 
 
 function updateControl(inflow_rate_max, t, dt) {
   if (!control) {
+    u = constrain(inflowSlider.value() / 100, 0, 1);  
     return (inflowSlider.value() / 100) * inflow_rate_max;
   } else {
 
@@ -819,17 +855,16 @@ function updateControl(inflow_rate_max, t, dt) {
 function drawControlImage() {
   const canvasRect = canvas.elt.getBoundingClientRect();
 
-  let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();
+  let setpointSliderBox = select('#setpoint-slider-box').elt.getBoundingClientRect();
   let pBtn = select('#P-control').elt.getBoundingClientRect();
   let iBtn = select('#I-control').elt.getBoundingClientRect();
   let dBtn = select('#D-control').elt.getBoundingClientRect();
 
-  let startX = setpointSliderBox.right;
-  let startY =  setpointSliderBox.top;
+  let startX = setpointSliderBox.right-padding;
 
 drawPIDLines(
   startX,
-  startY,
+  0,
   {
     x: pBtn.left - canvasRect.left,
     y: pBtn.top + pBtn.height / 2 - canvasRect.top,
@@ -855,8 +890,57 @@ drawPIDLines(
 
 }
 
+function drawSimulation(){
+
+  
+  sliderTop.value(upperWaterPercent * tankSize);
+  sliderBot.value(lowerWaterPercent * tankSize);
+
+push();
+  // Draw tanks
+  fill(255); stroke(0);
+  rect(x_upperTank+tankSize/2, y_upperTank, tankSize/2, tankSize);
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap, tankSize/2, tankSize);
+
+  // draw connector
+  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap);
+  rect(x_upperTank+tankSize/2 + tankSize / 4 - connectorWidth / 2, y_upperTank + tankSize + tankSize + tankGap, connectorWidth, tankGap);
+  // Draw water
+  fill(0, 0, 255); noStroke();
+  if(u >= 0.01) {
+    rect(x_upperTank + tankSize*31/42,  y_upperTank - tankSize/7 ,connectorWidth/2, tankSize + tankSize/7);
+  }
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize - upperWaterLevel, tankSize/2, upperWaterLevel); // Tank 1 water
+  if (upperWaterPercent > 0.001) {
+    rect(x_upperTank + tankSize*3/4  - connectorWidth / 2, y_upperTank + tankSize, connectorWidth, tankGap); // Connector water
+    clogUpper ? 0 : rect(x_upperTank + tankSize*3/4- connectorWidth/4, y_upperTank + tankSize, connectorWidth/2, tankSize + tankGap); // Water flowing from connector
+  }
+  rect(x_upperTank+tankSize/2, y_upperTank + tankSize + tankGap + tankSize - lowerWaterLevel, tankSize/2, lowerWaterLevel); //Tank 2 water
+  if (lowerWaterPercent > 0.001) {
+    rect(x_upperTank + tankSize*3/4 - connectorWidth/2, y_upperTank + tankSize*2 + tankGap, connectorWidth, 40*scaleFactor); // Water flowing from connector
+    clogLower ? 0 : rect(x_upperTank + tankSize*3/4 - connectorWidth/4, y_upperTank + tankSize*2 + tankGap*2, connectorWidth/2, 40*scaleFactor);
+  }
+  // WIP
+  //drawOverflowEffect(x_upperTank + tankSize / 2, y_upperTank, isUpperOverflowing);
+  //drawOverflowEffect(x_upperTank + tankSize / 2, y_upperTank + tankSize + tankGap, isLowerOverflowing);
+
+  pop();
+
+  // Drawing pump
+  x_pump = x_upperTank + tankSize/3;
+  y_pump = y_upperTank + tankSize/7.5;
+  scaleFactor = tankSize/200;
+  drawPump(x_pump, y_pump, 0, scaleFactor)
+
+  //Drawing lines with reservoir and showerhead
+  drawReservoirScaled();
+
+}
+
 // Drawing of each line for drawControlImage
 function drawPIDLines(startX, startY, pPos, iPos, dPos) {
+
+  startY = iPos.y;
 
   push(); //Push/pop to save/restore default draw settings
 
@@ -868,10 +952,11 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   // Please note, drawArrowhead(X,Y, angle) prints an arrowhead at the end of the line. This is sometimes used.
 
   // values for sum blocks
-  const x_sumRight = pPos.x/0.80;
+  const x_sumRight = pPos.x + width * 0.065;
   const x_sumLeft = pPos.x/1.17;
   const y_sum= iPos.y;
   const sumSize = 15;
+  const mergingX = x_sumRight; 
 
   //First line from inflow box -> branch spot
   const splitX = pPos.x/1.07;
@@ -881,6 +966,7 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   const yTop = pPos.y;
   const yBottom = dPos.y;
   line(splitX, yTop, splitX, yBottom);
+
 
   // Branch to P
   line(splitX, pPos.y, pPos.x, pPos.y);
@@ -895,8 +981,7 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   drawArrowhead(dPos.x, dPos.y, 0);
 
   // From the buttons to merging point
-  const mergingX = pPos.x + width * 0.05; 
-  const x_uBox = mergingX + width * 0.05;   
+  const x_uBox = mergingX + width * 0.035;   
   line(pPos.x_right, pPos.y, mergingX, pPos.y);
   line(iPos.x_right, iPos.y, mergingX, iPos.y);
   line(dPos.x_right, dPos.y, mergingX, dPos.y);
@@ -908,7 +993,7 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   const y_uBox = iPos.y;
   line(mergingX, iPos.y, x_uBox, iPos.y);
   drawArrowhead(x_uBox, iPos.y, 0);
-  drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u);
+  drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u, "Control Signal (u)");
 
   
   // Line from uBox to pump
@@ -924,18 +1009,18 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
 
   // Horisontal line across output box and inverter.
   line(x_sumLeft, y_output, x_outputBox, y_output);
-  drawArrowhead(iPos.x + iPos.width*2, y_output, pi);
+  drawArrowhead(iPos.x + iPos.width, y_output, pi);
 
   //Inverter box
-  drawBox(iPos.x, y_output, iPos.height, iPos.width, -1);
+  drawBox(iPos.x, y_output, iPos.height, iPos.width/2, -1, "Inverter block");
 
 
   if(controlLower){
-    drawBox(x_outputBox, y_output, iPos.height, iPos.width, lowerWaterPercent);
-    drawBox(x_outputBox, y_output-iPos.height, iPos.height, iPos.width, setpointSlider.value()/100); // This shows another box with setpoint (r) value, removed (redundant?)
+    drawBox(x_outputBox, y_output, iPos.height, iPos.width, lowerWaterPercent, "Lower tank water (%)");
+    //drawBox(x_outputBox, y_output-iPos.height, iPos.height, iPos.width, setpointSlider.value()/100); // This shows another box with setpoint (r) value, removed (redundant?)
   }
   else{
-  drawBox(x_outputBox, y_output, iPos.height, iPos.width, upperWaterPercent);
+  drawBox(x_outputBox, y_output, iPos.height, iPos.width, upperWaterPercent, "Upper tank water (%)");
   } 
   push();
   let textMarigin = iPos.height/3;
@@ -943,7 +1028,7 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(iPos.height * 0.5);
-  let rText = 'r';
+  let rText = 'u';
   text(rText, x_uBox-textMarigin, iPos.y-textMarigin);
   let yText = 'y';
   text(yText, x_outputBox-textMarigin, y_output-textMarigin);
@@ -952,6 +1037,12 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
 // Arrowheads into left sumblock
   drawArrowhead(x_sumLeft-sumSize, y_sum, 0);
   drawArrowhead(x_sumLeft, y_sum+sumSize, 3*pi / 2);
+
+  // Arrowheads into right sumblock
+  drawArrowhead(x_sumRight-sumSize, y_sum, 0);
+  drawArrowhead(x_sumRight, y_sum+sumSize, 3*pi / 2);
+  drawArrowhead(x_sumRight, y_sum-sumSize, 1*pi / 2);
+
   
   drawSumBlock(x_sumLeft, y_sum, sumSize);
   drawSumBlock(x_sumRight, y_sum, sumSize);
@@ -1000,7 +1091,6 @@ function drawPump(x, y, angle, size = 1) {
 function drawSumBlock(x, y, radius = 20) {
 
   push(); // Saves previous style settings
-  // Drawing circle
   stroke(0);
   strokeWeight(2);
   fill(255);
@@ -1016,7 +1106,7 @@ function drawSumBlock(x, y, radius = 20) {
   fill(0);
 }
 
-function drawBox(x,y, boxHeight, boxWidth, value){
+function drawBox(x,y, boxHeight, boxWidth, value, hoverText = ""){
 
   boxWidth = boxWidth / 0.5;
   y = y-boxHeight/2;
@@ -1033,5 +1123,142 @@ function drawBox(x,y, boxHeight, boxWidth, value){
   textAlign(CENTER, CENTER);
   textSize(boxHeight * 0.5);
   text(uText, x + boxWidth/2, y + boxHeight/2);
+  
+  if (hoverText !== "" && !tooltipMap[hoverText]) {
+    let labelDiv = createDiv(hoverText);
+    labelDiv.class("hover-label");
+    labelDiv.position(x, y - 20);
+    labelDiv.hide();
+  
+    let hitBox = createDiv("");
+    hitBox.position(x + boxWidth / 7, y + boxHeight / 4);
+    hitBox.size(boxWidth, boxHeight);
+    hitBox.style("opacity", "0");
+    hitBox.style("position", "absolute");
+  
+    hitBox.mouseOver(() => labelDiv.show());
+    hitBox.mouseOut(() => labelDiv.hide());
+  
+    tooltipMap[hoverText] = { labelDiv, hitBox };
+  } 
   pop();
+}
+
+function drawDebug(){
+  push();
+  textAlign(LEFT, TOP);
+  text(`Canvas: ${width} x ${height}`, 10, 10);
+  text(`FPS: ${nf(frameRate(), 2, 1)}`, 10, 30);
+  pop();
+}
+
+function drawClogToggles() {
+  let upperX = x_upperTank + tankSize * 3/4;
+  let upperY = y_upperTank + tankSize + tankGap;
+  let lowerY = y_upperTank + 2 * tankSize + tankGap * 2;
+
+  drawValveToggle(upperX, upperY, clogUpper, "Clog upper");
+  drawValveToggle(upperX, lowerY, clogLower, "Clog lower");
+  hoveringValve ? cursor(HAND) : cursor(ARROW);
+  hoveringValve = false; 
+
+}
+
+function drawValveToggle(x, y, isClogged, hoverText) {
+  const size = 16 * scaleFactor;
+  y = y - size / 2;
+
+  const isHovering = dist(mouseX, mouseY, x, y) < size*2;
+  push();
+  translate(x, y);
+  rectMode(CENTER);
+  strokeWeight(2);
+
+  if (isHovering) {
+    hoveringValve = true;
+    stroke(50, 200, 255); 
+    fill(200);          
+  } else {
+    stroke(0);
+    fill('gray');
+  }
+
+  if (isClogged) {
+    rect(0, 0, size, size);
+  } else {
+    rect(size, 0, size, size);
+  }
+
+  stroke(0);
+  strokeWeight(4);
+  line(-size / 2 + 2, 0, size / 2 - 2, 0);
+  pop();
+
+  if (isHovering) {
+    let tooltipText = hoverText;
+    textSize(12 * scaleFactor); 
+    textAlign(CENTER, CENTER);
+    let tw = textWidth(tooltipText);
+    let th = textAscent() + textDescent();
+    let paddingX = 8 * scaleFactor;
+    let paddingY = 4 * scaleFactor;
+  
+    let boxWidth = tw + 2 * paddingX;
+    let boxHeight = th + 2 * paddingY;
+    push();
+    rectMode(CENTER);
+    noStroke();
+    fill(0, 0, 0, 175); 
+    rect(x, y - size - boxHeight, boxWidth, boxHeight, 4 * scaleFactor);
+  
+    fill(255); 
+    text(tooltipText, x, y - size - boxHeight);
+    pop();
+  } 
+
+}
+
+
+function mousePressed() {
+  let upperX = x_upperTank + tankSize * 3/4;
+  let upperY = y_upperTank + tankSize + tankGap;
+  let lowerY = y_upperTank + 2 * tankSize + tankGap * 2;
+  const radius = 12 * scaleFactor;
+
+  if (dist(mouseX, mouseY, upperX, upperY) < radius*2) {
+    clogUpper = !clogUpper;
+  }
+
+  if (dist(mouseX, mouseY, upperX, lowerY) < radius*2) {
+    clogLower = !clogLower;
+  }
+}
+
+function clearTooltips() {
+  for (let key in tooltipMap) {
+    tooltipMap[key].labelDiv.remove();
+    tooltipMap[key].hitBox.remove();
+  }
+  tooltipMap = {};
+}
+
+function drawOverflowEffect(x, y, isOverflowing) {
+  if (isOverflowing) {
+    push();
+    stroke(0, 100, 255, 200);
+    fill(100, 150, 255, 180);
+    for (let i = 0; i < 5; i++) {
+      ellipse(x + random(-10, 10), y + 10 + i * 8, 6, 6);
+    }
+    pop();
+
+    if (frameCount % 30 < 20) {
+      push();
+      fill('red');
+      textSize(14);
+      textAlign(CENTER, BOTTOM);
+      text("Overflow!", x, y - 10);
+      pop();
+    }
+  }
 }
