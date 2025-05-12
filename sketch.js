@@ -147,7 +147,7 @@ function draw() {
   drawSimulation();
   drawClogToggles();
   drawControlImage();
-  drawDebug();
+  //drawDebug();
 
   updateSimulationTime();
 }
@@ -504,10 +504,21 @@ push();
   }
 
   if (graph === 1) {
-    drawHistoryLine(upperLevelHistory, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
-    drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
-    drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v);
+
+    if(!control){
+      drawHistoryLine(upperLevelHistory, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+      drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+    } 
+    
+    else{
+      drawHistoryLine(referenceHistory, 'black', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, v => v);
+      if(controlUpper){
+        drawHistoryLine(upperLevelHistory, 'blue', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+      } if(controlLower){
+        drawHistoryLine(lowerWaterHistory, '#cc0033', graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax);
+      }
   }
+}
 
   
 
@@ -1014,13 +1025,20 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   //Inverter box
   drawBox(iPos.x, y_output, iPos.height, iPos.width/2, -1, "Inverter block");
 
+  //
 
+//Draws water heigh boxes and lines from tank into box
   if(controlLower){
     drawBox(x_outputBox, y_output, iPos.height, iPos.width, lowerWaterPercent, "Lower tank water (%)");
-    //drawBox(x_outputBox, y_output-iPos.height, iPos.height, iPos.width, setpointSlider.value()/100); // This shows another box with setpoint (r) value, removed (redundant?)
+    line(x_outputBox+iPos.width/2 , y_upperTank+1.75*tankSize, x_outputBox+iPos.width/2, y_output+iPos.height/2);
+    line(x_upperTank + tankSize/2 , y_upperTank+1.75*tankSize, x_outputBox+iPos.width/2, y_upperTank+1.75*tankSize);
+    drawArrowhead(x_outputBox+iPos.width/2,y_output+iPos.height/2, 3*pi/2);
   }
   else{
   drawBox(x_outputBox, y_output, iPos.height, iPos.width, upperWaterPercent, "Upper tank water (%)");
+  line(x_outputBox+iPos.width/2 , y_upperTank+tankSize/2, x_outputBox+iPos.width/2, y_output-iPos.height/2);
+  line(x_upperTank + tankSize/2 , y_upperTank+tankSize/2, x_outputBox+iPos.width/2, y_upperTank+tankSize/2);
+  drawArrowhead(x_outputBox+iPos.width/2,y_output-iPos.height/2, pi/2);
   } 
   push();
   let textMarigin = iPos.height/3;
