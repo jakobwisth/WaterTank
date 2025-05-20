@@ -649,7 +649,8 @@ function clickables(){
   KpValue.changed(() => {
     let typedValue = parseFloat(KpValue.value());
     if (!isNaN(typedValue)) {
-      Kp = typedValue;
+      let clamped = constrain(typedValue, 0, 50);
+      Kp = clamped;
       KpSlider.value(Kp);
       KpValue.value(nf(Kp, 1, 2));
     }
@@ -657,6 +658,9 @@ function clickables(){
   TiValue.changed(() => {
     let typedValue = parseFloat(TiValue.value());
     if (!isNaN(typedValue)) {
+      if (typedValue < 0.01) {
+        typedValue = 0;
+      }
       let clamped = constrain(typedValue, 0, 50);
       Ti = clamped;
       TiSlider.value(clamped);
