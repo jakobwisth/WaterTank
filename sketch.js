@@ -169,65 +169,12 @@ function updateSimulationTime(){
   }
 }
 
-//Drawing reservoir and showerhead, and lines between
-function drawReservoirScaled() {
-  const centerX = x_upperTank + tankSize * 3/4;  // x of center of lower tank
-  const baseY = y_upperTank + 2 * tankSize + tankGap + height *0.12; // Bottom Y of reservoir
-
-  push();
-  translate(centerX, baseY); // moves so origin (0,0) is at the bottom center of reservoir
-  scale(scaleFactor);   //scales
-
-  const tankWidth = tankSize / scaleFactor / 2;
-  const reservoirHeight = 30;
-  const reservoirWidthOffset = 20;
-
-  fill(0);
-  beginShape();
-  vertex(-tankWidth / 2, 0); // Bottom-left
-  vertex(tankWidth / 2, 0);  // Bottom-right
-  vertex(tankWidth / 2 + reservoirWidthOffset, -reservoirHeight); // Top-right
-  vertex(-tankWidth / 2 - reservoirWidthOffset, -reservoirHeight); // Top-left
-  endShape(CLOSE);
-
-  // horisontal line from reservoir to pump
-  strokeWeight(5 / scaleFactor);
-  const pipeY = -reservoirHeight + 2;
-
-  // Variables for drwaing
-  const pumpSize = 10*scaleFactor;
-  const pumpX = (x_pump - centerX) / scaleFactor;
-  const pumpY_bottom = (y_pump - baseY + pumpSize) / scaleFactor;
-  const pumpY_top = (y_pump - baseY - pumpSize) / scaleFactor;
-  const topLine_Y = pumpY_top - 80;
-  showerLine_y = topLine_Y+20;
-
-  // Line going from reservoir to showerhead
-
-  line(-tankWidth / 2 - reservoirWidthOffset + 10, pipeY, pumpX, pipeY); // First
-  line(pumpX, pipeY - 2, pumpX, pumpY_bottom); //veritcal into pump
-  line(pumpX, pumpY_top, pumpX, topLine_Y); // Pump to top
-  line(pumpX, topLine_Y, 0, topLine_Y);  //Horisontal top
-  line(0, topLine_Y, 0, showerLine_y); // top to showerhead
-
-
-  //Drawing showerhead
-  const headWidth = 20;
-  const headHeight = 15 ;
-  beginShape(); 
-  vertex(0, showerLine_y);                          
-  vertex(-headWidth / 2, showerLine_y + headHeight); 
-  vertex(headWidth / 2, showerLine_y + headHeight);  
-  endShape(CLOSE);
-  pop();
-
-  }
 
 function runSimulationStep(dt) {
   simTime += dt;
 
   // --- Water logic ---
-  let inflow_rate_max = 2.1 * Math.pow(10, -5);
+  let inflow_rate_max = 1.3 * Math.pow(10, -5); // 2.1 i manual !
   inflow_rate = updateControl(inflow_rate_max, simTime, dt);
   let A = 4.9 * Math.pow(10, -4);
 
@@ -282,6 +229,81 @@ function runSimulationStep(dt) {
   }
 }
 
+//Drawing reservoir and showerhead, and lines between
+function drawReservoirScaled() {
+  const centerX = x_upperTank + tankSize * 3/4;  // x of center of lower tank
+  const baseY = y_upperTank + 2 * tankSize + tankGap + height *0.12; // Bottom Y of reservoir
+
+  push();
+  translate(centerX, baseY); // moves so origin (0,0) is at the bottom center of reservoir
+  scale(scaleFactor);   //scales
+
+  const tankWidth = tankSize / scaleFactor / 2;
+  const reservoirHeight = 30;
+  const reservoirWidthOffset = 20;
+
+  fill(0);
+  beginShape();
+  vertex(-tankWidth / 2, 0); // Bottom-left
+  vertex(tankWidth / 2, 0);  // Bottom-right
+  vertex(tankWidth / 2 + reservoirWidthOffset, -reservoirHeight); // Top-right
+  vertex(-tankWidth / 2 - reservoirWidthOffset, -reservoirHeight); // Top-left
+  endShape(CLOSE);
+
+  // horisontal line from reservoir to pump
+  strokeWeight(5 / scaleFactor);
+  const pipeY = -reservoirHeight + 2;
+
+  // Variables for drwaing
+  const pumpSize = 10*scaleFactor;
+  const pumpX = (x_pump - centerX) / scaleFactor;
+  const pumpY_bottom = (y_pump - baseY + pumpSize) / scaleFactor;
+  const pumpY_top = (y_pump - baseY - pumpSize) / scaleFactor;
+  const topLine_Y = pumpY_top - 80;
+  showerLine_y = topLine_Y+20;
+
+  // Line going from reservoir to showerhead
+
+  line(-tankWidth / 2 - reservoirWidthOffset + 10, pipeY, pumpX, pipeY); // First
+  line(pumpX, pipeY - 2, pumpX, pumpY_bottom); //veritcal into pump
+  line(pumpX, pumpY_top, pumpX, topLine_Y); // Pump to top
+  line(pumpX, topLine_Y, 0, topLine_Y);  //Horisontal top
+  line(0, topLine_Y, 0, showerLine_y); // top to showerhead
+
+
+  //Drawing showerhead
+  const headWidth = 20;
+  const headHeight = 15 ;
+  beginShape(); 
+  vertex(0, showerLine_y);                          
+  vertex(-headWidth / 2, showerLine_y + headHeight); 
+  vertex(headWidth / 2, showerLine_y + headHeight);  
+  endShape(CLOSE);
+  pop();
+
+  }
+
+function windowResized() {
+  clearTooltips();
+  const { canvasWidth, canvasHeight } = getCanvasSize();
+  resizeCanvas(canvasWidth, canvasHeight);
+  
+  resizeControls();
+}
+
+function getCanvasSize() {
+  const padding = 40;
+  const aspectRatio = 16 / 9;
+  const maxWidth = windowWidth - padding;
+  const maxHeight = windowHeight - padding;
+  let canvasWidth = maxWidth;
+  let canvasHeight = canvasWidth / aspectRatio;
+  if (canvasHeight > maxHeight) {
+    canvasHeight = maxHeight;
+    canvasWidth = canvasHeight * aspectRatio;
+  }
+  return { canvasWidth, canvasHeight };
+}
 
 function resizeControls() {
 
@@ -389,6 +411,7 @@ function resizeControls() {
 }
 
 
+// not used 
 function positionPauseButton() {
 
   let pauseX = width - graphWidth;
@@ -396,27 +419,6 @@ function positionPauseButton() {
   pauseBtn.position(pauseX, pauseY);
 }
 
-function windowResized() {
-  clearTooltips();
-  const { canvasWidth, canvasHeight } = getCanvasSize();
-  resizeCanvas(canvasWidth, canvasHeight);
-  
-  resizeControls();
-}
-
-function getCanvasSize() {
-  const padding = 40;
-  const aspectRatio = 16 / 9;
-  const maxWidth = windowWidth - padding;
-  const maxHeight = windowHeight - padding;
-  let canvasWidth = maxWidth;
-  let canvasHeight = canvasWidth / aspectRatio;
-  if (canvasHeight > maxHeight) {
-    canvasHeight = maxHeight;
-    canvasWidth = canvasHeight * aspectRatio;
-  }
-  return { canvasWidth, canvasHeight };
-}
 
 function drawLineGraph(graph) {
   graphWidth = width * 0.36;
