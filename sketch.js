@@ -83,9 +83,7 @@ let graphGap;
 
 // buttons
 let pauseBtn;
-
 const pi = 3.1415;
-
 
 function setup() {
   let { canvasWidth, canvasHeight } = getCanvasSize();
