@@ -326,7 +326,6 @@ canvas {
   text-align: center;
   position: absolute;
   z-index: 10;
-  
 }
 
 .hover-label {
@@ -360,8 +359,6 @@ canvas {
   z-index: 50;
   transform-origin: top left;
 }
-
-
 .control-title {
   font-weight: bold;
   background-color: #e0e0e0;
@@ -370,6 +367,116 @@ canvas {
   border-radius: 4px;
   width: 100%;
   text-align: center;
+}
+
+
+/* Advanced options start */
+
+
+#Advanced-Options {
+  position: absolute;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  top: 20px;
+  left: 20px;
+  z-index: 60;
+}
+
+#options-menu {
+  position: absolute;
+  top: 50px; 
+  left: 0;
+  background-color: white;
+  padding: 10px;
+  width: 15vw;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.3);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  z-index: 100;
+}
+
+#options-menu.visible {
+  display: flex;
+}
+#options-button {
+  background-color: rgb(220, 220, 220); /* match canvas */
+  color: #333;                         /* dark text for contrast */
+  border: 3px solid #999;              /* subtle border for separation */
+  border-radius: 50%;
+  width: 1.5vw;
+  height: 1.5vw;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+#options-button:hover {
+  background-color: rgb(200, 200, 200);
+  border-color: #666;
+}
+
+
+#options-menu.visible {
+  display: flex;
+}
+
+#clog-slider-box {
+  width: 100%;
+  background-color: #f8f8f8;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+}
+.clog-section-label {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+#clog-slider {
+  width: 100px;
+  appearance: none;
+  height: 5px;
+  background: #ccc;
+  border-radius: 5px;
+}
+#clog-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  background: #333;
+  border-radius: 50%;
+  cursor: grab;
+}
+#clog-value {
+  width: 45px;
+  font-size: 13px;
+  padding: 2px;
+  text-align: center;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+}
+
+.hidden {
+  display: none;
 }
 
 .divider {
@@ -398,6 +505,11 @@ canvas {
 
 .status-off {
   color: darkred;
+}
+
+#pid-equation {
+  position: absolute;
+  z-index: 30;
 }
 
 body, input[type="range"] {

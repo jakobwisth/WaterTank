@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <script src="sketch.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 </head>
 
 <body> 
@@ -15,7 +16,7 @@
 
     <div id="inflow-slider-box">
         <div class="slider-title">Manual</div>
-        <div class="slider-text"> (u)</div>
+        <div class="slider-text"> u(t)</div>
 
         <div class="slider-paired-row">
           
@@ -31,7 +32,7 @@
 
     <div id="setpoint-slider-box">
       <div class="slider-title">Setpoint</div>
-      <div class="slider-text"> (r)</div>
+      <div class="slider-text"> r</div>
       <div class="slider-paired-row">
         <input type="range" id="setpoint-slider" min="0" max="100" value="0" />
         <div class="slider-labels">
@@ -61,33 +62,34 @@
   <div id="PID-variables-slider-box">
     <div class = "PID-parameters">PID parameters</div>
     <div class="PID-titles">
-      <div class="slider-title">Kp</div>
+      <div class="slider-title">K</div>
       <div class="slider-title">Ti</div>
       <div class="slider-title">Td</div>
     </div>
     <div class="slider-paired-row">
-      <input type="range" id="Kp-slider" min="0" max="50" value="4"step="0.01" />
+      <input type="range" id="Kp-slider" min="0" max="50" value="1"step="0.01" />
       <div class="slider-labels">
         <div class="scale-label">50.0</div>
         <div class="scale-label">0.0</div>
       </div>
-      <input type="range" id="Ti-slider" min="0" max="50" value="15" step="0.01"/>
+      <input type="range" id="Ti-slider" min="0.1" max="50" value="1" step="0.01"/>
       <div class="slider-labels">
-        <div class="scale-label">50.0</div>
-        <div class="scale-label">0.0</div>
+        <div class="scale-label">inf</div>
+        <div class="scale-label">0.1</div>
       </div>
-      <input type="range" id="Td-slider" min="0" max="50" value="5" step="0.01"/>
+      <input type="range" id="Td-slider" min="0" max="50" value="1" step="0.01"/>
       <div class="slider-labels">
         <div class="scale-label">50.0</div>
         <div class="scale-label">0.0</div>
       </div>
     </div>
     <div class = "PID-numbers">
-      <input type="number" id="Kp-value" min="0" max="50" step="0.1" value="4.0" />
-      <input type="number" id="Ti-value" min="0" max="50" step="0.1" value="15.0" />
-      <input type="number" id="Td-value" min="0" max="50" step="0.1" value="5.0" />
+      <input type="number" id="Kp-value" min="0" max="50" step="0.1" value="1.0" />
+      <input type="text" id="Ti-value" value="1.0" />
+      <input type="number" id="Td-value" min="0" max="50" step="0.1" value="1.0" />
     </div>
 </div>
+
 
 
     <!--Sliders-->
@@ -105,6 +107,7 @@
       </div>
     </div>
 
+
     <div id="controls">
       <button id="fill-btn">Fill</button>
       <button id="drain-btn">Stop Fill</button>
@@ -120,5 +123,29 @@
     <div id="controls2">
 
     </div>
+
+    <div id="Advanced-Options">
+      <button id="options-button">...</button>
+      <div id="options-menu" class="hidden">
+        <div class="options-title">Advanced Options</div>
+      
+        <div id="clog-slider-box">
+          <hr class="divider" />
+          <div class="clog-section-label">Clog percentage</div>
+          <div class="slider-paired-row">
+            <input type="range" id="clog-slider" min="0" max="100" value="100" />
+            <input type="number" id="clog-value" min="0" max="100" value="100" />
+          </div>
+          <hr class="divider" />
+          <div class="title">Add more here</div>
+                   <!--Add options here-->
+          </div>
+        </div>
+      </div>
+      
+      <div id="pid-equation">
+        $$ u(t) = K \left( e(t) + \frac{1}{T_i} \int_0^t e(\tau) d\tau + T_d \frac{de(t)}{dt} \right) $$
+      </div>
+
 </body>
 </html>

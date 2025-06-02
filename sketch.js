@@ -23,6 +23,9 @@ let isUpperOverflowing = false;
 let isLowerOverflowing = false;
 let tabHidden = false;
 
+//Advanced Options
+let clogSlider;
+let clogValue;
 
 
 // Position globals
@@ -46,13 +49,13 @@ let showerLine_y;
 // PID control globals
 let control = false;
 let P_enable = true;
-let I_enable = true;
-let D_enable = true;
+let I_enable = false;
+let D_enable = false;
 let controlLower = false;
 let controlUpper = true;
-let Kp = 4;
-let Ti = 15; 
-let Td = 5;
+let Kp = 1;
+let Ti = 1; 
+let Td = 1;
 let previousTi = Ti;
 let integral = 0;
 let previousError = 0;
@@ -118,8 +121,8 @@ function initiateButtons(){
   controlUpperBtn.addClass('active-button');
   controlLowerBtn.addClass('default-button');
   P_enableBtn.addClass('active-button');
-  I_enableBtn.addClass('active-button');
-  D_enableBtn.addClass('active-button');
+  I_enableBtn.addClass('default-button');
+  D_enableBtn.addClass('default-button');
   fillBtn.addClass('active-button');
   controlBtn.addClass('default-button');
 }
@@ -174,7 +177,7 @@ function runSimulationStep(dt) {
   simTime += dt;
 
   // --- Water logic ---
-  let inflow_rate_max = 1.3 * Math.pow(10, -5); // 2.1 i manual !
+  let inflow_rate_max = 1.2 * Math.pow(10, -5); // 2.1 i manual !
   inflow_rate = updateControl(inflow_rate_max, simTime, dt);
   let A = 4.9 * Math.pow(10, -4);
 
@@ -190,8 +193,9 @@ function runSimulationStep(dt) {
   let upper_q_in = filling ? inflow_rate : 0;
   let lower_q_in = upper_q_out;
 
-  if (clogUpper) upper_q_out = 0;
-  if (clogLower) lower_q_out = 0;
+  let clogFraction = 1 - parseFloat(clogSlider.value()) / 100;
+  if (clogUpper) upper_q_out = upper_q_out *= clogFraction;
+  if (clogLower) lower_q_out = lower_q_out *= clogFraction;
 
   if (filling) h1 += upper_q_in * dt / A;
   h1 -= upper_q_out * dt / A;
@@ -337,7 +341,7 @@ function resizeControls() {
   sliderBot.attribute('max', tankSize);
   sliderBot.attribute('min', 0);
 
-
+  let pid_equation = select('#pid-equation');
   let inflowBox = select('#inflow-slider-box');
   let speedupBox = select('#speedup-slider-box');
   let setpointBox = select('#setpoint-slider-box');
@@ -348,6 +352,7 @@ function resizeControls() {
   let dButton = select('#D-control');
   let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
   let speedPosition = select('#setpoint-slider').elt.getBoundingClientRect();  
+
   scaleFactor = tankSize / 200;
   let x_controlSlider = x_controls + controlSize/20;
   let y_inflowSlider =  y_controls + controlSize / 40;
@@ -367,9 +372,12 @@ function resizeControls() {
   inflowBox.style('transform', `scale(${scaleFactor})`);
   PIDBox.position(x_controlSlider, y_inflowSlider + 1.4*tankSize);
   PIDBox.style('transform', `scale(${scaleFactor})`);
+
   
   controlBox.position(x_controlSlider, y_inflowSlider+ 2.8*tankSize);
   controlBox.style('transform', `scale(${scaleFactor*0.7})`);
+  pid_equation.position(x_controlSlider*12, y_inflowSlider+ 3.2*tankSize);
+  pid_equation.style('transform', `scale(${scaleFactor*1})`);
  
   //let pauseX = width - graphWidth;
   //let pauseY = graphY;
@@ -626,10 +634,39 @@ function clickables(){
   TiValue = select('#Ti-value');
   TdSlider = select('#Td-slider');
   TdValue = select('#Td-value');
+
+  // --- Advanced options
+  let optionsButton = select('#options-button');
+  let optionsMenu = select('#options-menu');
+  clogSlider = select('#clog-slider');
+  clogValue = select('#clog-value');
+
+
   
+  if (clogSlider && clogValue) {
+    clogSlider.input(() => {
+      clogValue.value(clogSlider.value());
+    });
+  
+    clogValue.input(() => {
+      let val = constrain(parseInt(clogValue.value()), 0, 100);
+      clogValue.value(val);
+      clogSlider.value(val);
+    });
+  }
 
-  // How the clickables will function here
+  optionsButton.mousePressed(() => {
+    if (optionsMenu.hasClass('visible')) {
+      optionsMenu.removeClass('visible');
+    } else {
+      optionsMenu.addClass('visible');
+    }
+  });
 
+      // --- End of Advanced Options
+
+
+    // How the clickables will function here
   inflowValue.changed(() => {
     let typedValue = parseFloat(inflowValue.value());
     if (!isNaN(typedValue)) {
@@ -658,15 +695,21 @@ function clickables(){
     }
   });
   TiValue.changed(() => {
-    let typedValue = parseFloat(TiValue.value());
+    let typed = TiValue.value();
+    let typedValue = parseFloat(typed);
     if (!isNaN(typedValue)) {
       if (typedValue < 0.01) {
-        typedValue = 0;
+        typedValue = 0.01;
       }
       let clamped = constrain(typedValue, 0, 50);
       Ti = clamped;
       TiSlider.value(clamped);
-      TiValue.value(nf(clamped, 1, 2));
+  
+      if (clamped >= 50) {
+        TiValue.value('inf');
+      } else {
+        TiValue.value(nf(clamped, 1, 2));
+      }
     }
   });
   TdValue.changed(() => {
@@ -700,7 +743,12 @@ function clickables(){
   TiSlider.input(() => {
     let sliderVal = parseFloat(TiSlider.value());
     Ti = sliderVal;
-    TiValue.value(nf(sliderVal, 1, 2));
+  
+    if (sliderVal >= 50) {
+      TiValue.value('inf');
+    } else {
+      TiValue.value(nf(sliderVal, 1, 2));
+    }
   });
   TdSlider.input(() => {
     let sliderVal = parseFloat(TdSlider.value());
@@ -844,7 +892,7 @@ function updateControl(inflow_rate_max, t, dt) {
         integral += e * dt;
       }
 
-      I_part = (Ti !== 0) ? (Kp / Ti) * integral : 0; // If Ti == 0, I_part = 0
+      I_part = (Ti !== 50) ? (Kp / Ti) * integral : 0; // If Ti == 50, I_part = 0
     } else {
       I_part = 0;
     }
@@ -1052,9 +1100,9 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(iPos.height * 0.5);
-  let rText = 'u';
+  let rText = 'u(t)  ';
   text(rText, x_uBox-textMarigin, iPos.y-textMarigin);
-  let yText = 'y';
+  let yText = 'y(t)  ';
   text(yText, x_outputBox-textMarigin, y_output-textMarigin);
   pop();
 
@@ -1249,11 +1297,11 @@ function mousePressed() {
   let lowerY = y_upperTank + 2 * tankSize + tankGap * 2;
   const radius = 12 * scaleFactor;
 
-  if (dist(mouseX, mouseY, upperX, upperY) < radius*2) {
+  if (dist(mouseX, mouseY, upperX, upperY) < radius*3) {
     clogUpper = !clogUpper;
   }
 
-  if (dist(mouseX, mouseY, upperX, lowerY) < radius*2) {
+  if (dist(mouseX, mouseY, upperX, lowerY) < radius*3) {
     clogLower = !clogLower;
   }
 }
