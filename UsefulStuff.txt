@@ -1,0 +1,133 @@
+  // To prevent memory builup, only saves/stores past 15 seconds.
+  //upperLevelHistory = upperLevelHistory.filter(d => simTime - d.t <= graphDuration);
+  //lowerWaterHistory = lowerWaterHistory.filter(d => simTime - d.t <= graphDuration);
+
+
+
+//
+// Leaking: (What I did before)
+    leaking = filling && upperWaterPercent >= 1;
+    if (!leaking) droplets = []; 
+
+
+    //////////////////////////////////////// Was used to track stuff////////////////////////////////
+      let deltaUpper = upperWaterPercent - lastUpper;
+let deltaLower = lowerWaterPercent - lastLower;
+
+if (!pauseSim) {
+  // Track water that left upper tank
+  if (deltaUpper < 0) totalOutFromUpper += Math.abs(deltaUpper);
+
+  // Track water entering and draining from lower tank
+  if (deltaLower > 0) totalIntoLower += deltaLower;
+  if (deltaLower < 0) totalOutFromLower += Math.abs(deltaLower);
+}
+
+if (!hasLoggedConservation && simTime >= 10) {
+  console.log("=== Water Conservation Check ===");
+  console.log("Out from Upper:", totalOutFromUpper.toFixed(3));
+  console.log("Into Lower:", totalIntoLower.toFixed(3));
+  console.log("Out from Lower:", totalOutFromLower.toFixed(3));
+
+  let expected = totalIntoLower + totalOutFromLower;
+  let difference = totalOutFromUpper - expected;
+
+  console.log("Expected total:", expected.toFixed(3));
+  console.log("Difference:", difference.toFixed(5));
+
+  hasLoggedConservation = true; // prevent logging again
+}
+// Update last values
+lastUpper = upperWaterPercent;
+lastLower = lowerWaterPercent;
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+SVG:
+
+/*
+#inflow-slider::-webkit-slider-thumb {
+  appearance: none;
+  transform: rotate(180deg);
+  width: 40px;
+  height: 40px;
+  background-color: rgb(82, 71, 82);
+  margin-top: 10px;
+  cursor: grab;
+
+  -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480"><path d="M360 240 240 0 120 240v120l120 120 120-120V240z" fill="white"/></svg>');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+
+  mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480"><path d="M360 240 240 0 120 240v120l120 120 120-120V240z" fill="white"/></svg>');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+*/
+
+////////////////////////////////
+
+
+  
+  
+
+  if (leaking && !pauseSim) drawLeak(x_upperTank, y_upperTank);
+
+  
+function drawLeak(xBase, yBase) {
+  if (frameCount % 5 === 0) {
+    droplets.push({ x: random(xBase, xBase + 200), y: yBase, speed: random(1, 3), duration: 0 });
+  }
+
+  for (let i = droplets.length - 1; i >= 0; i--) {
+    let d = droplets[i];
+    fill(100, 100, 255, 180);
+    noStroke();
+    ellipse(d.x, d.y, 5, 8);
+    d.y += d.duration < 6 ? -d.speed : d.speed;
+    d.x += d.x > 225 ? d.speed / 2 : -d.speed / 2;
+    d.duration++;
+    if (d.y > height) droplets.splice(i, 1);
+  }
+}
+
+
+----
+
+// Place this in your sketch.js, e.g. near the end
+function drawControlArrows() {
+  const canvasRect = canvas.elt.getBoundingClientRect();
+
+  const drawArrowToSlider = (sliderId, label, color) => {
+    const bounds = select(sliderId).elt.getBoundingClientRect();
+    const targetX = bounds.left + bounds.width / 2 - canvasRect.left;
+    const targetY = bounds.top + bounds.height / 2 - canvasRect.top;
+
+    const sourceX = width * 0.44;
+    const sourceY = height * 0.2;
+
+    stroke(color);
+    strokeWeight(2);
+    //drawingContext.setLineDash([5, 3]); 
+    line(sourceX, sourceY, targetX, targetY);
+    drawingContext.setLineDash([]);
+
+    // Arrowhead
+    const angle = atan2(targetY - sourceY, targetX - sourceX);
+    const arrowSize = 10;
+    push();
+    translate(targetX, targetY);
+    rotate(angle);
+    fill(color);
+    noStroke();
+    triangle(0, 0, -arrowSize, arrowSize / 2, -arrowSize, -arrowSize / 2);
+    pop();
+
+    // Label
+    noStroke();
+    fill(color);
+    textSize(14);
+    textAlign(CENTER, CENTER);
+    text(label, sourceX - 20, sourceY);
+  };
