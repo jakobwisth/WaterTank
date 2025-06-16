@@ -112,7 +112,8 @@ function initiateButtons(){
   P_enableBtn.addClass('button-style');
   I_enableBtn.addClass('button-style');
   D_enableBtn.addClass('button-style');
-  controlBtn.addClass('button-style');
+  automaticBtn.addClass('button-style');
+  manualBtn.addClass('button-style');
 
 
   pauseBtn.addClass('default-button');
@@ -122,7 +123,8 @@ function initiateButtons(){
   I_enableBtn.addClass('default-button');
   D_enableBtn.addClass('default-button');
   fillBtn.addClass('active-button');
-  controlBtn.addClass('default-button');
+  automaticBtn.addClass('default-button');
+  manualBtn.addClass('active-button');
 }
 
 function pauseWhenTabbedOut(){
@@ -608,7 +610,8 @@ function clickables(){
   sliderBot = select('#bot-slider');
   fillBtn = select('#fill-btn');
   drainBtn = select('#drain-btn');
-  controlBtn = select('#control-btn');
+  automaticBtn = select('#automatic-btn');
+  manualBtn = select('#manual-btn');
   pauseBtn =select('#pause-btn');
   buttons = select('#controls');
   buttons2 = select('#controls2');
@@ -825,20 +828,29 @@ function clickables(){
     
   });
 
-  controlBtn.mousePressed(() => {
+  automaticBtn.mousePressed(() => {
     
     clearTooltips();
-    control = !control;
+    control = true;
     resizeControls();
-    if (control) {
-      integral = 0;
-      previousError = 0;
-      controlBtn.removeClass('default-button');
-      controlBtn.addClass('active-button');
-    } else {
-      controlBtn.removeClass('active-button');
-      controlBtn.addClass('default-button');
-    }
+    integral = 0;
+    previousError = 0;
+    automaticBtn.removeClass('default-button');
+    automaticBtn.addClass('active-button');
+    manualBtn.removeClass('active-button');
+    manualBtn.addClass('default-button');
+  });
+
+  manualBtn.mousePressed(() => {
+    
+    clearTooltips();
+    control = false;
+    resizeControls();
+
+    manualBtn.removeClass('default-button');
+    manualBtn.addClass('active-button');
+    automaticBtn.removeClass('active-button');
+    automaticBtn.addClass('default-button');
   });
   pauseBtn.mousePressed(() => {
     pauseSim = !pauseSim;
@@ -881,7 +893,6 @@ function updateControl(inflow_rate_max, t, dt) {
     // --- I Part ---
     if (I_enable) {
       if (Ti !== previousTi) {
-        integral = 0;
         previousTi = Ti;
       }
 
@@ -1020,16 +1031,20 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   const y_sum= iPos.y;
   const sumSize = 15;
   const mergingX = x_sumRight; 
-
-  //First line from inflow box -> branch spot
   const splitX = pPos.x/1.07;
-  line(startX, startY, splitX, iPos.y);
+
+  //If automatic, first line from inflow box -> branch spot 
+  if(control){
+    line(startX, startY, splitX, iPos.y);
+  }
+  // If Manual, draw from Manual -> output box, added later.
 
   //This draws a veritcal line from yTop to ybottom where the first split occurs
   const yTop = pPos.y;
   const yBottom = dPos.y;
   line(splitX, yTop, splitX, yBottom);
 
+  line(x_sumRight,iPos.y, x_sumLeft, iPos.y);
 
   // Branch to P
   line(splitX, pPos.y, pPos.x, pPos.y);
@@ -1052,11 +1067,28 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   // Vertical line by merge point
   line(mergingX, yTop, mergingX, yBottom);
 
-  // Line to uBox, with arrow
+  // Drawing the control signal box (uBox)
   const y_uBox = iPos.y;
+  drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u, "Control Signal (u)");
+
+// If automatic mode, draw line from sum to uBox
+if(control){
   line(mergingX, iPos.y, x_uBox, iPos.y);
   drawArrowhead(x_uBox, iPos.y, 0);
-  drawBox(x_uBox, y_uBox, iPos.height, iPos.width, u, "Control Signal (u)");
+  drawArrowhead(x_sumLeft-sumSize, y_sum, 0);
+}
+// If manual mode, draw from Manual slider box to uBox
+  if(!control){
+    const manSliderBoxX = startX - width * 0.113;
+    const lineHeight = pPos.y - height*0.045;
+    const x_manualuBox = x_uBox + width*0.03;
+    const y_manualuBox = y_uBox - height * 0.025;
+    line(manSliderBoxX, startY, manSliderBoxX, lineHeight);
+    line(manSliderBoxX, lineHeight, x_manualuBox,lineHeight);
+    line(x_manualuBox,lineHeight, x_manualuBox, y_manualuBox);
+    drawArrowhead(x_manualuBox, y_manualuBox, pi/2);
+  }
+  
 
   
   // Line from uBox to pump
@@ -1104,8 +1136,7 @@ function drawPIDLines(startX, startY, pPos, iPos, dPos) {
   text(yText, x_outputBox-textMarigin, y_output-textMarigin);
   pop();
 
-// Arrowheads into left sumblock
-  drawArrowhead(x_sumLeft-sumSize, y_sum, 0);
+// Arrowhead into left sumblock
   drawArrowhead(x_sumLeft, y_sum+sumSize, 3*pi / 2);
 
   // Arrowheads into right sumblock
