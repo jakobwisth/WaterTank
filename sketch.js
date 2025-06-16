@@ -316,8 +316,8 @@ function resizeControls() {
   tankSize = min(width, height) * 0.25;
   tankGap = height * 0.05;
   
-  x_controls = width*0.01;
-  y_controls = height*0.1;
+  x_controls = padding + width*0.01;
+  y_controls = padding + height*0.1;
   controlSize = min(width,height) * 0.5;
 
   connectorWidth = tankSize * 0.05;
@@ -351,11 +351,11 @@ function resizeControls() {
   let iButton = select('#I-control');
   let dButton = select('#D-control');
   let inflowbox = select('#inflow-slider-box').elt.getBoundingClientRect();
-  let speedPosition = select('#setpoint-slider').elt.getBoundingClientRect();  
+
 
   scaleFactor = tankSize / 200;
-  let x_controlSlider = x_controls + controlSize/20;
-  let y_inflowSlider =  y_controls + controlSize / 40;
+  let x_controlSlider = x_controls;
+  let y_inflowSlider =  y_controls;
 
   if (control) {
     inflowBox.addClass('slider-disabled');
@@ -376,22 +376,19 @@ function resizeControls() {
   
   controlBox.position(x_controlSlider, y_inflowSlider+ 2.8*tankSize);
   controlBox.style('transform', `scale(${scaleFactor*0.7})`);
-  pid_equation.position(x_controlSlider*12, y_inflowSlider+ 3.2*tankSize);
-  pid_equation.style('transform', `scale(${scaleFactor*1})`);
+  pid_equation.position(padding + width*0.24, padding + height*0.87);
+  pid_equation.style('transform', `scale(${scaleFactor*1.3})`);
  
-  //let pauseX = width - graphWidth;
-  //let pauseY = graphY;
-  let pauseX = width - graphWidth;
-  let pauseY = y_upperTank+tankSize+tankGap+tankSize/5;
+  let pauseX = width *0.66;
+  let pauseY = height*0.5;
   let pauseHeight = pauseBtn.elt.offsetHeight;
-  let pauseWidth = pauseBtn.elt.offsetWidth;
+  
+  speedupBox.style('transform', `scale(${scaleFactor*0.67})`);
+  speedupBox.position(pauseX+width*0.17, pauseY);
+  
+  pauseBtn.style('transform', `scale(${scaleFactor*0.88})`);
   pauseBtn.position(pauseX, pauseY);
-  pauseBtn.style('font-size', `${12 * scaleFactor}px`);
   pauseBtn.style('padding', `${5 * scaleFactor}px ${15 * scaleFactor}px`);
-
-
-  speedupBox.style('transform', `scale(${scaleFactor*0.65})`);
-  speedupBox.position(pauseX+pauseWidth+padding*scaleFactor, pauseY-pauseHeight);
 
   let setpointSliderBox = select('#setpoint-slider').elt.getBoundingClientRect();  
   let x_PIDbuttons = x_controlSlider + 2*tankSize;
@@ -405,13 +402,6 @@ function resizeControls() {
   dButton.position(x_PIDbuttons, y_PIDbuttons + PID_marigin);
   dButton.style('transform', `scale(${scaleFactor})`);
 
-  // not needed anymore ?
- // let controlsX = 20; // 20 pixels from left side
- // let controlsY = height - buttons.size().height - 20; // 20 pixels above bottom of canvas
-
-  // Delete/comment these if you want to change position of the buttons individually. Otherwise it wont position as wanted.
-  //buttons.position(controlsX, controlsY);
-  //buttons2.position(controlsX, controlsY + buttons.size().height + 10); // 10px gap between rows
 
   fillBtn.hide();
   drainBtn.hide();
@@ -429,13 +419,13 @@ function positionPauseButton() {
 
 
 function drawLineGraph(graph) {
-  graphWidth = width * 0.36;
-  graphHeight = height * 0.35;
-  graphGap = height * 0.20;
+  graphWidth = width * 0.34;
+  graphHeight = height * 0.33;
+  graphGap = height * 0.27;
 
   if (graph == 1) {
     graphX = width - graphWidth- padding*scaleFactor;
-    graphY = padding * scaleFactor;
+    graphY = padding * scaleFactor + height*0.03;
   }
   if (graph == 2) {
     graphX = width - graphWidth - padding*scaleFactor;
@@ -568,6 +558,27 @@ push();
     }
     pop();
 
+    // -- graph titles and units/labels --
+push();
+textAlign(CENTER, CENTER);
+textSize(width/85);
+fill(0);
+
+// X- Time(s) label
+text("Time (s)", graphX + graphWidth / 2, graphY + graphHeight + height*0.04);
+
+// labels for both Y axis
+push();
+translate(graphX - width*0.035, graphY + graphHeight / 2);
+rotate(-pi/2);
+text(graph === 1 ? "Water Level y(t)" : "Control Signal u(t)", 0, 0);
+pop();
+
+// Graph title
+textAlign(CENTER, BOTTOM);
+textSize(width/65);
+text(graph === 1 ? "Tank Levels and Reference" : "PID Components", graphX + graphWidth / 2, graphY);
+pop();
 }
 
 function drawHistoryLine(data, color, graphX, graphY, graphWidth, graphHeight, minTime, maxTime, yMin, yMax, valueTransform = null) {
@@ -903,6 +914,7 @@ function updateControl(inflow_rate_max, t, dt) {
 
       I_part = (Ti !== 50) ? (Kp / Ti) * integral : 0; // If Ti == 50, I_part = 0
     } else {
+      integral = 0; 
       I_part = 0;
     }
     // -- D Part --

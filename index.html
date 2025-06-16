@@ -45,18 +45,15 @@
   </div>
 
   <div id="speedup-slider-box">
-    <div class="slider-title">Speed up</div>
-    <div class="slider-paired-column">
-      <div class="slider-labels">
-        <div class="scale-label">0.0</div>
-        <div class="scale-label">1</div>
-        <div class="scale-label">2</div>
-        <div class="scale-label">3</div>
-        <div class="scale-label">4</div>
-      </div>
-      <input type="range" id="speedup-slider" min="0" max="4" value="1" />
+    <div class="slider-labels">
+      <div class="speedup-scale-label">1</div>
+      <div class="speedup-scale-label">2</div>
+      <div class="speedup-scale-label">3</div>
+      <div class="speedup-scale-label">4</div>
     </div>
+    <input type="range" id="speedup-slider" min="1" max="4" step="1">
   </div>
+  
 
 
   <div id="PID-variables-slider-box">
@@ -98,8 +95,8 @@
     <div id="control-button-group">
       <div class="control-title">Control Outputs</div>
       <div id="valve-controls">
-        <button id="manual-btn" title="Enable or disable automatic control">Manual Mode</button>
-        <button id="automatic-btn" title="Enable or disable automatic control">Automatic Mode</button>
+        <button id="manual-btn" title="Toggle Manual Mode">Manual Mode</button>
+        <button id="automatic-btn" title="Toggle Automatic Mode">Automatic Mode</button>
       </div>
 
       <hr class="divider" />
@@ -113,14 +110,14 @@
     <div id="controls">
       <button id="fill-btn">Fill</button>
       <button id="drain-btn">Stop Fill</button>
-      <button id="clog-lower-btn">Clog lower</button>
-      <button id="clog-upper-btn">Clog upper</button>
+      <button id="clog-lower-btn"  title="Toggle lower clog">Clog lower</button>
+      <button id="clog-upper-btn"  title="Toggle upper clog">Clog upper</button>
     </div>
     <div id="controls3">
-      <button id="P-control">P</button>
-      <button id="I-control">I</button>
-      <button id="D-control">D</button>
-      <button id="pause-btn">Freeze Plots                 </button>
+      <button id="P-control" title="Toggle P control">P</button>
+      <button id="I-control" title="Toggle I control">I</button>
+      <button id="D-control" title="Toggle D control">D</button>
+      <button id="pause-btn" title="Toggle Plot Freeze">Freeze Plots                 </button>
     </div>
     <div id="controls2">
 

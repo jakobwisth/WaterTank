@@ -164,13 +164,13 @@ canvas {
 
 #speedup-slider {
   appearance: none;
-  align-items: center;
   width: 250px;
   height: 15px;
   margin-top: 10px;
   background: #ccc;
   border-radius: 10px;
   cursor: grab;
+  width: 255px;
 }
 #speedup-slider::-webkit-slider-thumb {
   appearance: none;
@@ -186,7 +186,6 @@ canvas {
 
   /* Adjustments */
   margin-top: -6px;    
-  margin-left: 5px;  
   cursor: grab;
 }
 
@@ -252,6 +251,12 @@ canvas {
   color: #333;
   transform-origin: top left;
 }
+.speedup-scale-label {
+  height: 20px;
+  padding-left: 6px;
+  color: #333;
+  transform-origin: top left;
+}
 
 #speedup-slider-box{
   position: absolute;
@@ -301,9 +306,11 @@ canvas {
   transform-origin: top left;
 }
 #pause-btn {
-  width: 15vw;
+  width: clamp(260px, 20%, 160px);
+  height: clamp(40px, 65%, 40px);
   position: absolute;
   transform-origin: top left;
+  font-size: 25px;
 }
 #speedup-slider-box {
   transform-origin: top left;
@@ -434,6 +441,8 @@ canvas {
   display: flex;
 }
 
+/* Advanced options end */
+
 #clog-slider-box {
   width: 100%;
   background-color: #f8f8f8;
@@ -509,6 +518,7 @@ canvas {
 
 #pid-equation {
   position: absolute;
+  transform-origin: top left;
   z-index: 30;
 }
 
