@@ -269,8 +269,7 @@ function drawReservoirScaled() {
   // Line going from reservoir to showerhead
 
   line(-tankWidth / 2 - reservoirWidthOffset + 10, pipeY, pumpX, pipeY); // First
-  line(pumpX, pipeY - 2, pumpX, pumpY_bottom); //veritcal into pump
-  line(pumpX, pumpY_top, pumpX, topLine_Y); // Pump to top
+  line(pumpX, pipeY - 2, pumpX, topLine_Y); // Vertical from bottom reservoir to top
   line(pumpX, topLine_Y, 0, topLine_Y);  //Horisontal top
   line(0, topLine_Y, 0, showerLine_y); // top to showerhead
 
@@ -1014,9 +1013,9 @@ push();
 
   // Drawing pump
   x_pump = x_upperTank + tankSize/3;
-  y_pump = y_upperTank + tankSize/7.5;
+  y_pump = height*0.184;
   scaleFactor = tankSize/200;
-  drawPump(x_pump, y_pump, 0, scaleFactor)
+  //drawPump(x_pump, y_pump, 0, scaleFactor)
 
   //Drawing lines with reservoir and showerhead
   drawReservoirScaled();
@@ -1101,8 +1100,9 @@ if(control){
     drawArrowhead(x_manualuBox, y_manualuBox, pi/2);
   }
   
+  //Drawing pump
+  drawPump(x_pump, y_uBox, 0, scaleFactor)
 
-  
   // Line from uBox to pump
   let pump_LEFT = x_pump-10 * scaleFactor;
   line(x_uBox+iPos.width*2, y_uBox, pump_LEFT, y_uBox);
