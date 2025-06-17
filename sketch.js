@@ -106,6 +106,8 @@ function initiateButtons(){
   clogLowerBtn.hide();
   clogUpperBtn.hide();
 
+  speedupSlider.value(speedup);  
+  
   controlUpperBtn.addClass('button-style');
   controlLowerBtn.addClass('button-style');
   pauseBtn.addClass('button-style');
